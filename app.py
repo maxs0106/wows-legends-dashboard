@@ -459,7 +459,8 @@ def main():
                 
                 # ─── グラフ描画の完全安全化 ───
                 if not ma_df.empty and ma_df["battles"].sum() > 0:
-                    if (ma_df["win_rate"] == 0).all():
+                    # すべてのモードで勝率データが0、またはデータ数が極端に少ない場合のクラッシュ防止
+                    if (ma_df["win_rate"] == 0).all() or len(ma_df) <= 1:
                         fig_m = px.bar(ma_df, x="モード", y="battles", title="モード別出撃割合")
                     else:
                         fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
