@@ -198,7 +198,6 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
         df_concat = pd.concat(dfs, ignore_index=True)
         df_concat = df_concat.sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
         
-        # ⚠️ 重複削除の条件に「艦艇名（VEHICLE_NAME）+戦闘モード（TYPE）」を含めるように修正し、データ消失を防止
         if key == "account_stats":
             df_concat = df_concat.drop_duplicates(subset=['_SNAPSHOT_DATE'], keep='last')
         elif key == "battle_types" and 'TYPE' in df_concat.columns:
@@ -218,7 +217,6 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty:
         return {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
     
-    # 複数行（艦艇ごと、モードごと）を完全にマージして集計
     battles = float(df['BATTLES_COUNT'].sum() if 'BATTLES_COUNT' in df.columns else 0)
     wins = float(df['WINS'].sum() if 'WINS' in df.columns else 0)
     survived = float(df['SURVIVED'].sum() if 'SURVIVED' in df.columns else 0)
@@ -323,7 +321,13 @@ def main():
     min_d, max_d = (min(all_dates).date(), max(all_dates).date()) if all_dates else (date.today(), date.today())
     
     st.sidebar.markdown("---")
-    st.sidebar.header("⏱️ 分析対象期間")
+    st.sidebar.header("🕹️ モード・期間設定")
+    
+    # 💡 【重要】通常戦かAI戦かを明示的に分けるセレクトボックスを設置
+    target_mode_str = st.sidebar.selectbox("🎯 対象戦闘モード", ["通常戦 (PvP)", "AI戦 (PvE)", "ランク戦", "イベント戦"])
+    mode_code_map = {"通常戦 (PvP)": 1, "AI戦 (PvE)": 2, "ランク戦": 3, "イベント戦": 4}
+    selected_mode_code = mode_code_map[target_mode_str]
+
     preset = st.sidebar.selectbox("期間プリセット", ["全期間", "今日", "7日間", "30日間", "90日間", "カスタム"])
     
     start_d, end_d = min_d, max_d
@@ -346,36 +350,32 @@ def main():
     # Tab 1: 総合戦績・推移
     # ------------------------------------------
     with t_summary:
-        st.markdown('<div class="section-header">🏆 指定期間の総合パフォーマンス</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header">🏆 指定期間の総合パフォーマンス ({target_mode_str})</div>', unsafe_allow_html=True)
+        
+        # 指定モードのデータのみに絞り込む
+        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
         
         if preset == "全期間":
-            # 💡 【100%正確な全期間処理】アカウント全体の生涯確定データを優先的に読み込み
+            # 💡 【混入防止】選択中のモード単体の生涯トータル戦績を算出
             bt_df = data["battle_types"]
             if not bt_df.empty:
                 max_snapshot_date = bt_df['_SNAPSHOT_DATE'].max()
-                latest_bt_snapshot = bt_df[bt_df['_SNAPSHOT_DATE'] == max_snapshot_date]
-                global_kpi = calc_metrics_from_row(latest_bt_snapshot)
-            elif not ship_df.empty:
-                max_snapshot_date = ship_df['_SNAPSHOT_DATE'].max()
-                latest_ship_snapshot = ship_df[ship_df['_SNAPSHOT_DATE'] == max_snapshot_date]
-                global_kpi = calc_metrics_from_row(latest_ship_snapshot)
-            else:
-                acc_df = data["account_stats"]
-                if not acc_df.empty:
-                    max_snapshot_date = acc_df['_SNAPSHOT_DATE'].max()
-                    latest_acc = acc_df[acc_df['_SNAPSHOT_DATE'] == max_snapshot_date].iloc[0]
-                    global_kpi = {
-                        "battles": int(latest_acc.get('BATTLES_COUNT', 0)),
-                        "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0
-                    }
+                latest_bt = bt_df[(bt_df['_SNAPSHOT_DATE'] == max_snapshot_date) & (bt_df['TYPE'] == selected_mode_code)]
+                if not latest_bt.empty:
+                    global_kpi = calc_metrics_from_row(latest_bt)
                 else:
-                    global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
+                    global_kpi = calc_metrics_from_row(mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()])
+            elif not mode_filtered_ship_df.empty:
+                max_snapshot_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
+                global_kpi = calc_metrics_from_row(mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == max_snapshot_date])
+            else:
+                global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
             render_kpi_block(global_kpi)
             
         else:
-            # ⏱️ 期間指定（差分引き算処理）
-            if not ship_df.empty:
-                f_ship = ship_df[(ship_df['_SNAPSHOT_DATE'].dt.date >= start_d) & (ship_df['_SNAPSHOT_DATE'].dt.date <= end_d)]
+            # ⏱️ 期間指定（差分計算）
+            if not mode_filtered_ship_df.empty:
+                f_ship = mode_filtered_ship_df[(mode_filtered_ship_df['_SNAPSHOT_DATE'].dt.date >= start_d) & (mode_filtered_ship_df['_SNAPSHOT_DATE'].dt.date <= end_d)]
                 
                 if not f_ship.empty:
                     max_date_in_f = f_ship['_SNAPSHOT_DATE'].max()
@@ -387,15 +387,14 @@ def main():
                     if max_date_in_f == min_date_in_f:
                         global_kpi = calc_metrics_from_row(df_max_snap)
                     else:
-                        # ⚠️ 重複バグ防止のため、複合インデックス（艦艇名×戦闘モード）を作成して正確に引き算
-                        v_max = df_max_snap.set_index(['VEHICLE_NAME', 'TYPE'])
-                        v_min = df_min_snap.set_index(['VEHICLE_NAME', 'TYPE'])
+                        v_max = df_max_snap.set_index('VEHICLE_NAME')
+                        v_min = df_min_snap.set_index('VEHICLE_NAME')
                         
-                        common_idx = v_max.index.intersection(v_min.index)
+                        common_ships = v_max.index.intersection(v_min.index)
                         diff_rows = []
-                        for idx in common_idx:
-                            r_max = v_max.loc[idx]
-                            r_min = v_min.loc[idx]
+                        for s in common_ships:
+                            r_max = v_max.loc[s]
+                            r_min = v_min.loc[s]
                             diff_rows.append({
                                 'BATTLES_COUNT': max(0, r_max['BATTLES_COUNT'] - r_min['BATTLES_COUNT']),
                                 'WINS': max(0, r_max['WINS'] - r_min['WINS']),
@@ -406,9 +405,9 @@ def main():
                                 '_ESTIMATED_TIER': r_max['_ESTIMATED_TIER']
                             })
                         
-                        new_idx = v_max.index.difference(v_min.index)
-                        for idx in new_idx:
-                            r_max = v_max.loc[idx]
+                        new_ships = v_max.index.difference(v_min.index)
+                        for s in new_ships:
+                            r_max = v_max.loc[s]
                             diff_rows.append({
                                 'BATTLES_COUNT': r_max['BATTLES_COUNT'], 'WINS': r_max['WINS'],
                                 'SURVIVED': r_max['SURVIVED'], 'DAMAGE_DEALT': r_max['DAMAGE_DEALT'],
@@ -427,10 +426,10 @@ def main():
                 
             render_kpi_block(global_kpi)
 
-        st.markdown('<div class="section-header">📈 パフォーマンス成長トレンド (時系列推移)</div>', unsafe_allow_html=True)
-        if not ship_df.empty and len(ship_df['_SNAPSHOT_DATE'].unique()) > 1:
+        st.markdown(f'<div class="section-header">📈 パフォーマンス成長トレンド (時系列推移: {target_mode_str})</div>', unsafe_allow_html=True)
+        if not mode_filtered_ship_df.empty and len(mode_filtered_ship_df['_SNAPSHOT_DATE'].unique()) > 1:
             trend_data = []
-            for d, group in ship_df.groupby('_SNAPSHOT_DATE'):
+            for d, group in mode_filtered_ship_df.groupby('_SNAPSHOT_DATE'):
                 metrics_d = calc_metrics_from_row(group)
                 metrics_d['date'] = d
                 trend_data.append(metrics_d)
@@ -456,7 +455,7 @@ def main():
     # Tab 2: 戦闘モード別分析
     # ------------------------------------------
     with t_mode:
-        st.markdown('<div class="section-header">⚔️ 戦闘モード別スタッツ</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">⚔️ 全戦闘モードのスタッツ一覧</div>', unsafe_allow_html=True)
         bt_df = data["battle_types"]
         if not bt_df.empty:
             bt_latest = bt_df[bt_df['_SNAPSHOT_DATE'] == bt_df['_SNAPSHOT_DATE'].max()]
@@ -485,11 +484,7 @@ def main():
                 st.dataframe(pd.DataFrame(disp_rows), width='stretch', hide_index=True)
                 
                 if not ma_df.empty and ma_df["battles"].sum() > 0:
-                    if (ma_df["win_rate"] == 0).all() or len(ma_df) <= 1:
-                        fig_m = px.bar(ma_df, x="モード", y="battles", title="モード別出撃割合")
-                    else:
-                        fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="blues", title="モード別出撃割合")
-                    
+                    fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="blues", title="モード別出撃割合")
                     fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
                     st.plotly_chart(fig_m, width='stretch')
             else:
@@ -501,9 +496,11 @@ def main():
     # Tab 3: 国家・艦種分析
     # ------------------------------------------
     with t_nation:
-        st.markdown('<div class="section-header">🌍 国家別 × 艦種別 ポートフォリオ可視化</div>', unsafe_allow_html=True)
-        if not ship_df.empty:
-            latest_s = ship_df[ship_df['_SNAPSHOT_DATE'] == ship_df['_SNAPSHOT_DATE'].max()]
+        st.markdown(f'<div class="section-header">🌍 国家別 × 艦種別 分析 ({target_mode_str})</div>', unsafe_allow_html=True)
+        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
+        
+        if not mode_filtered_ship_df.empty:
+            latest_s = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()]
             
             col_g1, col_g2 = st.columns(2)
             with col_g1:
@@ -520,15 +517,17 @@ def main():
                 fig_n.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_n, width='stretch')
         else:
-            st.info("艦種別マッピングを構成するデータがありません。")
+            st.info("該当モードに対応するデータがありません。")
 
     # ------------------------------------------
     # Tab 4: 艦艇別データ
     # ------------------------------------------
     with t_ship:
-        st.markdown('<div class="section-header">🚢 艦艇マスタデータ・検索・ソートマトリクス</div>', unsafe_allow_html=True)
-        if not ship_df.empty:
-            l_ships = ship_df[ship_df['_SNAPSHOT_DATE'] == ship_df['_SNAPSHOT_DATE'].max()].copy()
+        st.markdown(f'<div class="section-header">🚢 艦艇マスタデータ・ソートマトリクス ({target_mode_str})</div>', unsafe_allow_html=True)
+        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
+        
+        if not mode_filtered_ship_df.empty:
+            l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()].copy()
             
             c_f1, c_f2, c_f3 = st.columns(3)
             with c_f1:
@@ -567,9 +566,11 @@ def main():
     # Tab 5: 自己ベスト
     # ------------------------------------------
     with t_records:
-        st.markdown('<div class="section-header">🔥 記録：パーソナル最高スコア</div>', unsafe_allow_html=True)
-        if not ship_df.empty:
-            l_ships = ship_df[ship_df['_SNAPSHOT_DATE'] == ship_df['_SNAPSHOT_DATE'].max()]
+        st.markdown(f'<div class="section-header">🔥 記録：パーソナル最高スコア ({target_mode_str})</div>', unsafe_allow_html=True)
+        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
+        
+        if not mode_filtered_ship_df.empty:
+            l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()]
             
             records_map = {
                 "MAX_DAMAGE_DEALT": "💥 1試合最大与ダメージ",
@@ -623,7 +624,7 @@ def main():
                 
                 if "join" in op:
                     border_color = "#10b981"
-                    badge_text = f"🟢 クラン [{c_tag}] に加入しました (初期役職: {role})"
+                    badge_text = f"🟢 クラン [{c_tag}] に加入しました"
                 elif "leave" in op:
                     border_color = "#ef4444"
                     badge_text = f"🔴 クラン [{c_tag}] から脱退、または除名されました"
