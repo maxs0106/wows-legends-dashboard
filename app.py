@@ -41,18 +41,76 @@ CSS_STYLE = """
         color: #ffffff;
         font-weight: 600;
         font-size: 1.2rem;
+        letter-spacing: 0.5px;
     }
     .date-badge {
         background: rgba(0, 242, 254, 0.1);
         border: 1px solid #00f2fe;
         color: #00f2fe;
         padding: 4px 12px;
-        border-radius: 20px;
+        border-radius: 4px;
         font-size: 0.85rem;
         font-weight: 600;
         display: inline-block;
         margin-bottom: 5px;
+        font-family: monospace;
     }
+    
+    /* 💡 【ご要望】ゲームUIを再現したシックな特製マトリクスデータテーブルCSS */
+    .chic-matrix-container {
+        margin: 20px 0;
+        overflow-x: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        border-radius: 6px;
+        border: 1px solid rgba(0, 242, 254, 0.2);
+    }
+    .chic-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: rgba(10, 25, 47, 0.4);
+        font-size: 0.95rem;
+        text-align: left;
+    }
+    .chic-table th {
+        background: linear-gradient(180deg, #112240 0%, #0a192f 100%);
+        color: #00f2fe;
+        font-weight: 600;
+        padding: 14px 18px;
+        border-bottom: 2px solid rgba(0, 242, 254, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+    .chic-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid rgba(0, 242, 254, 0.15);
+        color: #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    .chic-table tr:last-child td {
+        border-bottom: none;
+    }
+    .chic-table tr:hover td {
+        background-color: rgba(0, 242, 254, 0.06);
+        color: #ffffff;
+    }
+    .chic-indicator-name {
+        font-weight: 600;
+        color: #8892b0 !important;
+        background-color: rgba(17, 34, 64, 0.3);
+        width: 22%;
+        border-right: 1px solid rgba(0, 242, 254, 0.15);
+    }
+    .chic-value-lifetime {
+        font-weight: 700;
+        color: #ffffff;
+        text-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
+    }
+    .chic-value-period {
+        font-family: 'Courier New', Courier, monospace;
+        color: #a8b2d1;
+    }
+
     .empty-state {
         background: rgba(10, 25, 47, 0.4);
         border: 2px dashed rgba(0, 242, 254, 0.25);
@@ -61,11 +119,6 @@ CSS_STYLE = """
         text-align: center;
         margin: 40px auto;
         max-width: 750px;
-    }
-    .empty-icon {
-        font-size: 4.5rem;
-        color: rgba(0, 242, 254, 0.3);
-        margin-bottom: 15px;
     }
 </style>
 """
@@ -135,21 +188,16 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
             file_bytes = up_file.read()
             with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
                 file_list = z.namelist()
-                matched_count = 0
+                temp_dfs = {}
                 
-                snapshot_date = date.today()
-                date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', up_file.name)
-                if date_matches:
-                    snapshot_date = datetime.strptime(date_matches[0], '%Y-%m-%d').date()
-                else:
-                    # ファイル名に日付がない場合は、内部のCSVの最終更新日時等から推測
-                    snapshot_date = date.today()
+                # 💡 【重要】ファイル名の日付に依存せず、CSVファイルの中身からエクスポート日付をメタ解析する
+                detected_date = None
                 
+                # 最初に対象のCSVを一通りスキャンしてデータ日付を特定する
                 for internal_path in file_list:
                     base_name = os.path.basename(internal_path)
                     if base_name in CSV_MAPPING:
                         key = CSV_MAPPING[base_name]
-                        
                         try:
                             with z.open(internal_path) as f:
                                 content = f.read().decode('utf-8')
@@ -160,12 +208,39 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                         df = pd.read_csv(io.StringIO(content))
                         if not df.empty:
                             df.columns = [c.strip().upper() for c in df.columns]
-                            df['_SNAPSHOT_DATE'] = pd.to_datetime(snapshot_date)
-                            all_data[key].append(df)
-                            matched_count += 1
+                            temp_dfs[key] = df
+                            
+                            # Account Stats の更新日時カラムからエクスポート日付を正確にサンプリング
+                            if key == "account_stats" and 'DOSSIER_UPDATED_AT' in df.columns:
+                                val = str(df['DOSSIER_UPDATED_AT'].iloc[0]).strip()
+                                if val and val != "nan" and len(val) >= 10:
+                                    detected_date = datetime.strptime(val[:10], '%Y-%m-%d').date()
+                            elif key == "account_stats" and 'UPDATED_AT' in df.columns:
+                                val = str(df['UPDATED_AT'].iloc[0]).strip()
+                                if val and val != "nan" and len(val) >= 10:
+                                    detected_date = datetime.strptime(val[:10], '%Y-%m-%d').date()
+                
+                # もしCSV内部から日付が取れなかった場合は従来通りファイル名からフォールバック
+                if not detected_date:
+                    date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', up_file.name)
+                    if date_matches:
+                        detected_date = datetime.strptime(date_matches[0], '%Y-%m-%d').date()
+                    else:
+                        date_digits = re.findall(r'\d{8}', up_file.name)
+                        if date_digits:
+                            detected_date = datetime.strptime(date_digits[0], '%Y%m%d').date()
+                        else:
+                            detected_date = date.today()
+                
+                # 確定したスナップショット日付を付与してリストに格納
+                matched_count = 0
+                for key, df in temp_dfs.items():
+                    df['_SNAPSHOT_DATE'] = pd.to_datetime(detected_date)
+                    all_data[key].append(df)
+                    matched_count += 1
                             
                 if matched_count > 0:
-                    success_zips.append(f"{up_file.name} ({matched_count}個のCSVを検出)")
+                    success_zips.append(f"{up_file.name} -> [自動解析日付: {detected_date.strftime('%Y-%m-%d')}]")
                 else:
                     errors.append(f"{up_file.name}: 有効なWoWsLファイル構造が見つかりません。")
         except Exception as e:
@@ -201,7 +276,7 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
 # ==========================================
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty:
-        return {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
+        return {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0}
     
     battles = float(df['BATTLES_COUNT'].sum() if 'BATTLES_COUNT' in df.columns else 0)
     wins = float(df['WINS'].sum() if 'WINS' in df.columns else 0)
@@ -212,10 +287,6 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     
     deaths = battles - survived
     if deaths <= 0: deaths = 1.0
-    
-    avg_tier = 5.0
-    if '_ESTIMATED_TIER' in df.columns and battles > 0:
-        avg_tier = float((df['_ESTIMATED_TIER'] * df['BATTLES_COUNT']).sum() / battles)
 
     return {
         "battles": int(battles),
@@ -224,15 +295,13 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
         "avg_damage": (damage / battles) if battles > 0 else 0.0,
         "avg_frags": (frags / battles) if battles > 0 else 0.0,
         "avg_xp": (xp / battles) if battles > 0 else 0.0,
-        "kd": (frags / deaths) if battles > 0 else 0.0,
-        "avg_tier": avg_tier
+        "kd": (frags / deaths) if battles > 0 else 0.0
     }
 
-# 指定された新旧データ行から「期間内の純粋な差分戦績」を算出する関数
 def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
     battles = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
     if battles <= 0:
-        return {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
+        return {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0}
         
     wins = float(df_new['WINS'].sum() - df_old['WINS'].sum())
     survived = float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum())
@@ -242,11 +311,6 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
     
     deaths = battles - survived
     if deaths <= 0: deaths = 1.0
-    
-    avg_tier = 5.0
-    if '_ESTIMATED_TIER' in df_new.columns and 'BATTLES_COUNT' in df_new.columns:
-        # 新しい側の推定Tierを基準に割り当て
-        avg_tier = float((df_new['_ESTIMATED_TIER'] * df_new['BATTLES_COUNT']).sum() / df_new['BATTLES_COUNT'].sum()) if df_new['BATTLES_COUNT'].sum() > 0 else 5.0
 
     return {
         "battles": int(max(0, battles)),
@@ -255,16 +319,15 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
         "avg_damage": max(0.0, damage / battles) if battles > 0 else 0.0,
         "avg_frags": max(0.0, frags / battles) if battles > 0 else 0.0,
         "avg_xp": max(0.0, xp / battles) if battles > 0 else 0.0,
-        "kd": max(0.0, frags / deaths) if battles > 0 else 0.0,
-        "avg_tier": avg_tier
+        "kd": max(0.0, frags / deaths) if battles > 0 else 0.0
     }
 
 # ==========================================
-# 6. メインコントロール
+# 5. メインコントロール
 # ==========================================
 def main():
     st.title("⚓ WoWs Legends 高級戦績ダッシュボード")
-    st.markdown("`Fleet Intelligence Platform` | ⏱️ 期間設定: **ファイル自動解析（全期間 ＆ 各期間の差分表示）**")
+    st.markdown("`Fleet Intelligence Platform` | ⏱️ 期間設定: **内部データ自動解析マトリクス**")
     
     st.sidebar.header("📁 データインポート")
     uploaded_files = st.sidebar.file_uploader(
@@ -280,7 +343,7 @@ def main():
                 <div class="empty-icon">⚓</div>
                 <h3>データダンプが読み込まれていません</h3>
                 <p style="color: #94a3b8; max-width: 550px; margin: 0 auto 20px auto;">
-                    World of Warships: Legends公式サイトからダウンロードした個人データエクスポートのZIPアーカイブを複数まとめてサイドバーにドラッグ＆ドロップしてください。
+                    公式からエクスポートした個人データのZIPアーカイブを複数まとめてサイドバーにドロップしてください。<br>内部の記録日を自動でマージ解析します。
                 </p>
             </div>
             """,
@@ -288,30 +351,29 @@ def main():
         )
         return
 
-    with st.spinner("📦 データマイニング及びメタ解析を実行中..."):
+    with st.spinner("📦 CSV内部タイムスタンプからデータ基準日を逆引き解析中..."):
         raw_data, success_zips, errors = extract_zip_data(uploaded_files)
         data = merge_and_optimize(raw_data)
         
-    with st.sidebar.expander("📊 解析メタデータ一覧", expanded=False):
-        st.caption(f"読み込み成功ZIP: {len(success_zips)}件")
+    with st.sidebar.expander("📊 解析メタデータ一覧", expanded=True):
+        st.caption(f"読み込み成功履歴:")
+        for sz in success_zips: st.caption(f"✅ {sz}")
         if errors:
             st.error("エラー一覧:")
             for e in errors: st.caption(e)
 
-    # 💡 ファイルから検出されたすべての日付をソートして抽出
+    # 動的にソートされた一意の日付を取得
     all_dates = []
     for df in data.values():
         if not df.empty and '_SNAPSHOT_DATE' in df.columns:
             all_dates.extend(df['_SNAPSHOT_DATE'].unique().tolist())
-    
-    # 重複を排除して昇順にソート
     unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
     
     if unique_dates:
         st.sidebar.markdown("---")
-        st.sidebar.markdown("📅 **検出されたスナップショット基準日:**")
+        st.sidebar.markdown("📅 **自動検知したデータスナップショット一覧:**")
         for d in unique_dates:
-            st.sidebar.markdown(f'<div class="date-badge">⏱️ {d.strftime("%Y-%m-%d")}</div>', unsafe_allow_html=True)
+            st.sidebar.markdown(f'<div class="date-badge">⏳ {d.strftime("%Y-%m-%d")}</div>', unsafe_allow_html=True)
 
     ship_df = data["ship_stats"]
     if not ship_df.empty:
@@ -321,35 +383,27 @@ def main():
         ship_df['_ESTIMATED_TIER'] = [x[2] for x in parsed_meta]
         data["ship_stats"] = ship_df
 
-    # 🕹️ 【ご要望】戦闘タイプ（モード）選択を画像のUI仕様へ変更
+    # 🕹️ 戦闘タイプ（モード）選択ボタン
     st.markdown('<div class="section-header">🕹️ 戦闘タイプ (BATTLE TYPE) 選択</div>', unsafe_allow_html=True)
     
     if 'selected_mode_code' not in st.session_state:
-        st.session_state.selected_mode_code = 1 # デフォルトは通常戦
+        st.session_state.selected_mode_code = 1
         
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    
     with m_col1:
-        is_active = "👉 " if st.session_state.selected_mode_code == 1 else ""
-        if st.button(f"{is_active}通常戦 (PvP)", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 1 else "secondary"):
+        if st.button("通常戦 (PvP)", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 1 else "secondary"):
             st.session_state.selected_mode_code = 1
             st.rerun()
-            
     with m_col2:
-        is_active = "👉 " if st.session_state.selected_mode_code == 2 else ""
-        if st.button(f"{is_active}AI戦 (PvE)", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 2 else "secondary"):
+        if st.button("AI戦 (PvE)", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 2 else "secondary"):
             st.session_state.selected_mode_code = 2
             st.rerun()
-            
     with m_col3:
-        is_active = "👉 " if st.session_state.selected_mode_code == 3 else ""
-        if st.button(f"{is_active}ランク戦", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 3 else "secondary"):
+        if st.button("ランク戦", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 3 else "secondary"):
             st.session_state.selected_mode_code = 3
             st.rerun()
-            
     with m_col4:
-        is_active = "👉 " if st.session_state.selected_mode_code == 4 else ""
-        if st.button(f"{is_active}イベント戦 / アリーナ", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 4 else "secondary"):
+        if st.button("イベント戦 / アリーナ", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 4 else "secondary"):
             st.session_state.selected_mode_code = 4
             st.rerun()
 
@@ -361,20 +415,18 @@ def main():
     ])
 
     # ------------------------------------------
-    # Tab 1: 総合戦績（期間マトリクス表）
+    # Tab 1: 総合戦績（シックなデザインのマトリクス統合表）
     # ------------------------------------------
     with t_summary:
-        st.markdown(f'<div class="section-header">🏆 期間別マトリクス・スタッツ表 ({target_mode_str})</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header">🏆 期間別マトリクス・スタッツマトリクス ({target_mode_str})</div>', unsafe_allow_html=True)
         
-        # 該当戦闘モードのデータ抽出
         bt_df = data["battle_types"]
         mode_bt_df = bt_df[bt_df['TYPE'] == selected_mode_code] if not bt_df.empty else pd.DataFrame()
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
         
-        # マトリクスに格納するコラム辞書を定義
         matrix_columns = {}
         
-        # 1️⃣ 【全期間】最新ファイルの生涯データを計算
+        # 1️⃣ 全期間 (最新の生涯戦績データ)
         if not mode_bt_df.empty:
             latest_snap_date = mode_bt_df['_SNAPSHOT_DATE'].max()
             latest_row = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == latest_snap_date]
@@ -386,18 +438,16 @@ def main():
         else:
             global_kpi = calc_metrics_from_row(pd.DataFrame())
             
-        matrix_columns["全期間 (Lifetime)"] = global_kpi
+        matrix_columns["全期間 (Lifetime)"] = (global_kpi, True)
         
-        # 2️⃣ 【各CSVの期間別（差分）】日付が複数ある場合に動的に列を生成
+        # 2️⃣ 各CSVファイル間の期間別差分 (日付が複数検知された場合)
         if len(unique_dates) > 1:
-            # 日付を逆順にして、新しい期間から順に表示されるようにループを構成
             for i in range(len(unique_dates) - 1, 0, -1):
                 d_end = unique_dates[i]
                 d_start = unique_dates[i-1]
                 
                 period_label = f"{d_start.strftime('%Y%m%d')} 〜 {d_end.strftime('%Y%m%d')}"
                 
-                # それぞれの日付のデータを抽出
                 if not mode_bt_df.empty:
                     df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_end]
                     df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_start]
@@ -407,43 +457,44 @@ def main():
                 else:
                     df_end_snap, df_start_snap = pd.DataFrame(), pd.DataFrame()
                 
-                # 差分計算
                 if not df_end_snap.empty and not df_start_snap.empty:
                     period_kpi = calc_period_diff_metrics(df_end_snap, df_start_snap)
                 else:
                     period_kpi = calc_metrics_from_row(pd.DataFrame())
                     
-                matrix_columns[period_label] = period_kpi
+                matrix_columns[period_label] = (period_kpi, False)
 
-        # 💡 【重要】一つの戦闘タイプを一つの表に統合（縦軸に各種データ、横軸に期間）
-        row_names = [
-            "⚔️ 総戦闘数", 
-            "🏆 総合勝率", 
-            "🛡️ 生存率", 
-            "💥 平均与ダメージ", 
-            "💀 K/D 比", 
-            "🎯 平均撃沈数", 
-            "⭐ 平均取得経験値"
+        # 💡 【ご要望】ゲーム内のUIに準拠したシックでスタイリッシュなHTMLカスタムテーブルの生成
+        row_indicators = [
+            ("⚔️ 総戦闘数", "battles", "{:,} 戦"),
+            ("🏆 総合勝率", "win_rate", "{:.2f} %"),
+            ("🛡️ 生存率", "survived_rate", "{:.2f} %"),
+            ("💥 平均与ダメージ", "avg_damage", "{:,.0f} ダメージ"),
+            ("💀 K/D 比", "kd", "{:.2f}"),
+            ("🎯 平均撃沈数", "avg_frags", "{:.2f} 隻"),
+            ("⭐ 平均取得経験値", "avg_xp", "{:,.0f}")
         ]
         
-        table_data = {col_name: [] for col_name in matrix_columns.keys()}
+        html_table = '<div class="chic-matrix-container"><table class="chic-table"><thead><tr>'
+        html_table += '<th>戦績インジケーター</th>'
+        for col_name in matrix_columns.keys():
+            html_table += f'<th>{col_name}</th>'
+        html_table += '</tr></thead><tbody>'
         
-        for col_name, kpi in matrix_columns.items():
-            table_data[col_name].append(f"{kpi['battles']:,} 戦")
-            table_data[col_name].append(f"{kpi['win_rate']:.2f} %")
-            table_data[col_name].append(f"{kpi['survived_rate']:.2f} %")
-            table_data[col_name].append(f"{int(kpi['avg_damage']):,} ダメージ")
-            table_data[col_name].append(f"{kpi['kd']:.2f}")
-            table_data[col_name].append(f"{kpi['avg_frags']:.2f} 隻")
-            table_data[col_name].append(f"{int(kpi['avg_xp']):,}")
+        for label, key, fmt in row_indicators:
+            html_table += f'<tr><td class="chic-indicator-name">{label}</td>'
+            for col_name, (kpi, is_lifetime) in matrix_columns.items():
+                val = kpi[key]
+                formatted_val = fmt.format(val)
+                cell_class = "chic-value-lifetime" if is_lifetime else "chic-value-period"
+                html_table += f'<td class="{cell_class}">{formatted_val}</td>'
+            html_table += '</tr>'
             
-        matrix_df = pd.DataFrame(table_data, index=row_names)
+        html_table += '</tbody></table></div>'
         
-        # 表示用のインデックス列名を設定
-        matrix_df.index.name = "戦績インジケーター"
-        st.dataframe(matrix_df, width='stretch')
+        # HTMLを流し込んで描画
+        st.markdown(html_table, unsafe_allow_html=True)
 
-        # 📈 可視化トレンド表示
         if not mode_filtered_ship_df.empty and len(mode_filtered_ship_df['_SNAPSHOT_DATE'].unique()) > 1:
             st.markdown(f'<div class="section-header">📈 パフォーマンス成長トレンド (時系列履歴グラフ)</div>', unsafe_allow_html=True)
             trend_data = []
@@ -461,6 +512,8 @@ def main():
             fig = px.line(td_df, x='date', y=metric_selector, markers=True, color_discrete_sequence=['#00f2fe'])
             fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
             st.plotly_chart(fig, width='stretch')
+        else:
+            st.info("💡 異なる日付のZIPアーカイブを複数同時に読み込ませることで、自動的に上記のマトリクス表へ各期間の推移列が拡張されます。")
 
     # ------------------------------------------
     # Tab 2: 戦闘モード別全体一覧
@@ -486,8 +539,6 @@ def main():
                         "生存率": f"{r['survived_rate']:.2f}%", "K/D": f"{r['kd']:.2f}", "平均与ダメージ": f"{int(r['avg_damage']):,}"
                     })
                 st.dataframe(pd.DataFrame(disp_rows), width='stretch', hide_index=True)
-        else:
-            st.info("WOWSL_Battle_Types_Statistics.csv が見つかりません。")
 
     # ------------------------------------------
     # Tab 3: 国家・艦種分析
