@@ -499,7 +499,7 @@ def main():
                 })
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
-                fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="Cool", title="モード別出撃割合")
+                fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
                 fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_m, use_container_width=True)
             else:
