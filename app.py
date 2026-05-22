@@ -492,20 +492,32 @@ def main():
                     
            if mode_analytics:
                 ma_df = pd.DataFrame(mode_analytics)
-                disp_df = pd.DataFrame({
-                    "戦闘モード": ma_df["モード"], "戦闘数": ma_df["battles"],
-                    "勝率": ma_df["win_rate"].map("{:.2f}%".format), "生存率": ma_df["survived_rate"].map("{:.2f}%".format),
-                    "K/D": ma_df["kd"].map("{:.2f}".format), "平均与ダメージ": ma_df["avg_damage"].map("{:,.0f}".format)
-                })
-                st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
-                # 安全装置：データが1行以上、かつ戦闘数が1以上のときだけグラフを描画する
+                # 表示用データフレームの構築（万が一のデータ型エラーを防ぐため安全に処理）
+                disp_rows = []
+                for _, r in ma_df.iterrows():
+                    disp_rows.append({
+                        "戦闘モード": r["モード"],
+                        "戦闘数": int(r["battles"]),
+                        "勝率": f"{r['win_rate']:.2f}%",
+                        "生存率": f"{r['survived_rate']:.2f}%",
+                        "K/D": f"{r['kd']:.2f}",
+                        "平均与ダメージ": f"{int(r['avg_damage']):,}"
+                    })
+                st.dataframe(pd.DataFrame(disp_rows), use_container_width=True, hide_index=True)
+                
+                # ─── グラフ描画の完全安全化 ───
                 if not ma_df.empty and ma_df["battles"].sum() > 0:
-                    fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
-                    fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
+                    # すべてのモードで勝率が0（まだ戦闘がない、または引き算で0になった）の場合はcolor判定を外す
+                    if (ma_df["win_rate"] == 0).all():
+                        fig_m = px.bar(ma_df, x="モード", y="battles", title="モード別出撃割合")
+                    else:
+                        fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
+                    
+                    fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
                     st.plotly_chart(fig_m, use_container_width=True)
                 else:
-                    st.info("📊 グラフを表示するための有効な戦闘データがまだありません。")
+                    st.info("📊 指定された期間内に新しい戦闘データ（差分）が記録されていません。累積データを確認するには、左側の期間プリセットを『全期間』に変更するか、複数日のZIPファイルを同時にアップロードしてください。")
             else:
                 st.info("対応する戦闘モード別データが見つかりません。")
         else:
