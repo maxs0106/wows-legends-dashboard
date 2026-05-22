@@ -1,7 +1,7 @@
 import io
 import os
 import re
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from typing import Dict, List, Tuple, Optional, Any
 import zipfile
 
@@ -69,6 +69,23 @@ CSS_STYLE = """
         color: #ffffff;
         font-weight: 600;
         font-size: 1.2rem;
+    }
+    .mode-container {
+        background: rgba(10, 25, 47, 0.5);
+        border: 1px solid rgba(0, 242, 254, 0.2);
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 25px;
+    }
+    .date-badge {
+        background: rgba(0, 242, 254, 0.1);
+        border: 1px solid #00f2fe;
+        color: #00f2fe;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
     }
     .empty-state {
         background: rgba(10, 25, 47, 0.4);
@@ -271,7 +288,7 @@ def render_kpi_block(metrics: Dict[str, Any]):
 # ==========================================
 def main():
     st.title("⚓ WoWs Legends 高級戦績ダッシュボード")
-    st.markdown("`Production-Ready Data Platform`")
+    st.markdown("`Production-Ready Data Platform` | ⏱️ 期間: **全期間 (Lifetime)**")
     
     st.sidebar.header("📁 データインポート")
     uploaded_files = st.sidebar.file_uploader(
@@ -305,6 +322,19 @@ def main():
             st.error("エラー一覧:")
             for e in errors: st.caption(e)
 
+    # 💡 【ご要望】各CSVファイルの情報（スナップショット日付）を解析して表示
+    all_dates = []
+    for df in data.values():
+        if not df.empty and '_SNAPSHOT_DATE' in df.columns:
+            all_dates.extend(df['_SNAPSHOT_DATE'].tolist())
+            
+    if all_dates:
+        latest_data_date = max(all_dates).strftime('%Y-%m-%d')
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(f"📅 **データ基準日:**")
+        st.sidebar.markdown(f'<div class="date-badge">SNAPSHOT: {latest_data_date}</div>', unsafe_allow_html=True)
+        st.markdown(f'💡 現在、**{latest_data_date} 時点**の公式エクスポート全期間データを表示しています。')
+
     ship_df = data["ship_stats"]
     if not ship_df.empty:
         parsed_meta = ship_df['VEHICLE_NAME'].apply(parse_ship_id)
@@ -313,120 +343,71 @@ def main():
         ship_df['_ESTIMATED_TIER'] = [x[2] for x in parsed_meta]
         data["ship_stats"] = ship_df
 
-    all_dates = []
-    for df in data.values():
-        if not df.empty and '_SNAPSHOT_DATE' in df.columns:
-            all_dates.extend(df['_SNAPSHOT_DATE'].tolist())
+    # 💡 【ご要望】戦闘モード選択をセレクトボックスから画像のような「横並びカードボタン型UI」に変更
+    st.markdown('<div class="section-header">🕹️ 戦闘タイプ (BATTLE TYPE) 選択</div>', unsafe_allow_html=True)
+    
+    if 'selected_mode_code' not in st.session_state:
+        st.session_state.selected_mode_code = 1 # デフォルトは通常戦
+        
+    # 横並びのボタンコンポーネント配置
+    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+    
+    with m_col1:
+        is_active = "👉 " if st.session_state.selected_mode_code == 1 else ""
+        if st.button(f"{is_active}通常戦 (PvP)", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 1 else "secondary"):
+            st.session_state.selected_mode_code = 1
+            st.rerun()
             
-    min_d, max_d = (min(all_dates).date(), max(all_dates).date()) if all_dates else (date.today(), date.today())
-    
-    st.sidebar.markdown("---")
-    st.sidebar.header("🕹️ モード・期間設定")
-    
-    # 💡 【重要】通常戦かAI戦かを明示的に分けるセレクトボックスを設置
-    target_mode_str = st.sidebar.selectbox("🎯 対象戦闘モード", ["通常戦 (PvP)", "AI戦 (PvE)", "ランク戦", "イベント戦"])
-    mode_code_map = {"通常戦 (PvP)": 1, "AI戦 (PvE)": 2, "ランク戦": 3, "イベント戦": 4}
-    selected_mode_code = mode_code_map[target_mode_str]
+    with m_col2:
+        is_active = "👉 " if st.session_state.selected_mode_code == 2 else ""
+        if st.button(f"{is_active}AI戦 (PvE)", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 2 else "secondary"):
+            st.session_state.selected_mode_code = 2
+            st.rerun()
+            
+    with m_col3:
+        is_active = "👉 " if st.session_state.selected_mode_code == 3 else ""
+        if st.button(f"{is_active}ランク戦", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 3 else "secondary"):
+            st.session_state.selected_mode_code = 3
+            st.rerun()
+            
+    with m_col4:
+        is_active = "👉 " if st.session_state.selected_mode_code == 4 else ""
+        if st.button(f"{is_active}イベント戦 / アリーナ", use_container_width=True, type="primary" if st.session_state.selected_mode_code == 4 else "secondary"):
+            st.session_state.selected_mode_code = 4
+            st.rerun()
 
-    preset = st.sidebar.selectbox("期間プリセット", ["全期間", "今日", "7日間", "30日間", "90日間", "カスタム"])
-    
-    start_d, end_d = min_d, max_d
-    if preset == "今日": start_d = max_d
-    elif preset == "7日間": start_d = max(min_d, max_d - timedelta(days=7))
-    elif preset == "30日間": start_d = max(min_d, max_d - timedelta(days=30))
-    elif preset == "90日間": start_d = max(min_d, max_d - timedelta(days=90))
-    elif preset == "カスタム":
-        c_d1, c_d2 = st.sidebar.columns(2)
-        start_d = c_d1.date_input("開始", min_d, min_value=min_d, max_value=max_d)
-        end_d = c_d2.date_input("終了", max_d, min_value=min_d, max_value=max_d)
-
-    st.sidebar.info(f"📅 スコープ: {start_d} 〜 {end_d}")
+    selected_mode_code = st.session_state.selected_mode_code
+    target_mode_str = BATTLE_TYPE_CODE_MAP.get(selected_mode_code, "通常戦")
 
     t_summary, t_mode, t_nation, t_ship, t_records, t_clan = st.tabs([
         "📈 総合戦績・推移", "⚔️ 戦闘モード", "🌍 国家・艦種", "🚢 艦艇別データ", "🏆 自己ベスト", "🛡️ クラン履歴"
     ])
 
     # ------------------------------------------
-    # Tab 1: 総合戦績・推移
+    # Tab 1: 総合戦績
     # ------------------------------------------
     with t_summary:
-        st.markdown(f'<div class="section-header">🏆 指定期間の総合パフォーマンス ({target_mode_str})</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header">🏆 全期間の生涯サマリー実績 ({target_mode_str})</div>', unsafe_allow_html=True)
         
-        # 指定モードのデータのみに絞り込む
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
         
-        if preset == "全期間":
-            # 💡 【混入防止】選択中のモード単体の生涯トータル戦績を算出
-            bt_df = data["battle_types"]
-            if not bt_df.empty:
-                max_snapshot_date = bt_df['_SNAPSHOT_DATE'].max()
-                latest_bt = bt_df[(bt_df['_SNAPSHOT_DATE'] == max_snapshot_date) & (bt_df['TYPE'] == selected_mode_code)]
-                if not latest_bt.empty:
-                    global_kpi = calc_metrics_from_row(latest_bt)
-                else:
-                    global_kpi = calc_metrics_from_row(mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()])
-            elif not mode_filtered_ship_df.empty:
-                max_snapshot_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
-                global_kpi = calc_metrics_from_row(mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == max_snapshot_date])
+        bt_df = data["battle_types"]
+        if not bt_df.empty:
+            max_snapshot_date = bt_df['_SNAPSHOT_DATE'].max()
+            latest_bt = bt_df[(bt_df['_SNAPSHOT_DATE'] == max_snapshot_date) & (bt_df['TYPE'] == selected_mode_code)]
+            if not latest_bt.empty:
+                global_kpi = calc_metrics_from_row(latest_bt)
             else:
-                global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
-            render_kpi_block(global_kpi)
-            
+                global_kpi = calc_metrics_from_row(mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()])
+        elif not mode_filtered_ship_df.empty:
+            max_snapshot_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
+            global_kpi = calc_metrics_from_row(mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == max_snapshot_date])
         else:
-            # ⏱️ 期間指定（差分計算）
-            if not mode_filtered_ship_df.empty:
-                f_ship = mode_filtered_ship_df[(mode_filtered_ship_df['_SNAPSHOT_DATE'].dt.date >= start_d) & (mode_filtered_ship_df['_SNAPSHOT_DATE'].dt.date <= end_d)]
-                
-                if not f_ship.empty:
-                    max_date_in_f = f_ship['_SNAPSHOT_DATE'].max()
-                    min_date_in_f = f_ship['_SNAPSHOT_DATE'].min()
-                    
-                    df_max_snap = f_ship[f_ship['_SNAPSHOT_DATE'] == max_date_in_f]
-                    df_min_snap = f_ship[f_ship['_SNAPSHOT_DATE'] == min_date_in_f]
-                    
-                    if max_date_in_f == min_date_in_f:
-                        global_kpi = calc_metrics_from_row(df_max_snap)
-                    else:
-                        v_max = df_max_snap.set_index('VEHICLE_NAME')
-                        v_min = df_min_snap.set_index('VEHICLE_NAME')
-                        
-                        common_ships = v_max.index.intersection(v_min.index)
-                        diff_rows = []
-                        for s in common_ships:
-                            r_max = v_max.loc[s]
-                            r_min = v_min.loc[s]
-                            diff_rows.append({
-                                'BATTLES_COUNT': max(0, r_max['BATTLES_COUNT'] - r_min['BATTLES_COUNT']),
-                                'WINS': max(0, r_max['WINS'] - r_min['WINS']),
-                                'SURVIVED': max(0, r_max['SURVIVED'] - r_min['SURVIVED']),
-                                'DAMAGE_DEALT': max(0, r_max['DAMAGE_DEALT'] - r_min['DAMAGE_DEALT']),
-                                'FRAGS': max(0, r_max['FRAGS'] - r_min['FRAGS']),
-                                'EXP': max(0, r_max['EXP'] - r_min['EXP']),
-                                '_ESTIMATED_TIER': r_max['_ESTIMATED_TIER']
-                            })
-                        
-                        new_ships = v_max.index.difference(v_min.index)
-                        for s in new_ships:
-                            r_max = v_max.loc[s]
-                            diff_rows.append({
-                                'BATTLES_COUNT': r_max['BATTLES_COUNT'], 'WINS': r_max['WINS'],
-                                'SURVIVED': r_max['SURVIVED'], 'DAMAGE_DEALT': r_max['DAMAGE_DEALT'],
-                                'FRAGS': r_max['FRAGS'], 'EXP': r_max['EXP'], '_ESTIMATED_TIER': r_max['_ESTIMATED_TIER']
-                            })
-                            
-                        if diff_rows:
-                            global_kpi = calc_metrics_from_row(pd.DataFrame(diff_rows))
-                        else:
-                            global_kpi = calc_metrics_from_row(df_max_snap)
-                else:
-                    st.info("選択された期間のデータスナップショットがありません。")
-                    global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
-            else:
-                global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
-                
-            render_kpi_block(global_kpi)
+            global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
+            
+        render_kpi_block(global_kpi)
 
-        st.markdown(f'<div class="section-header">📈 パフォーマンス成長トレンド (時系列推移: {target_mode_str})</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header">📈 パフォーマンス成長トレンド (エクスポート履歴別の推移: {target_mode_str})</div>', unsafe_allow_html=True)
         if not mode_filtered_ship_df.empty and len(mode_filtered_ship_df['_SNAPSHOT_DATE'].unique()) > 1:
             trend_data = []
             for d, group in mode_filtered_ship_df.groupby('_SNAPSHOT_DATE'):
@@ -449,7 +430,7 @@ def main():
             )
             st.plotly_chart(fig, width='stretch')
         else:
-            st.info("💡 異なる日付のZIPファイルを2つ以上読み込ませることで、自動的に時系列推移グラフが生成されます。")
+            st.info("💡 異なる日付のZIPファイルを2つ以上同時に読み込ませることで、自動的に時系列の戦績成長グラフが生成されます。")
 
     # ------------------------------------------
     # Tab 2: 戦闘モード別分析
