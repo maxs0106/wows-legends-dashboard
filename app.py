@@ -489,37 +489,36 @@ def main():
                     m_kpi = calc_metrics_from_row(m_row)
                     m_kpi['モード'] = name
                     mode_analytics.append(m_kpi)
-                    
-           if mode_analytics:
-                ma_df = pd.DataFrame(mode_analytics)
+
+                if mode_analytics:
+                    ma_df = pd.DataFrame(mode_analytics)
+            
+                    # 表示用データフレームの構築
+                    disp_rows = []
+                    for _, r in ma_df.iterrows():
+                        disp_rows.append({
+                            "戦闘モード": r["モード"],
+                            "戦闘数": int(r["battles"]),
+                            "勝率": f"{r['win_rate']:.2f}%",
+                            "生存率": f"{r['survived_rate']:.2f}%",
+                            "K/D": f"{r['kd']:.2f}",
+                            "平均与ダメージ": f"{int(r['avg_damage']):,}"
+                        })
+                    st.dataframe(pd.DataFrame(disp_rows), use_container_width=True, hide_index=True)
+            
+                    # グラフ描画の完全安全化
+                    if not ma_df.empty and ma_df["battles"].sum() > 0:
+                        if (ma_df["win_rate"] == 0).all():
+                            fig_m = px.bar(ma_df, x="モード", y="battles", title="モード別出撃割合")
+                        else:
+                            fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
                 
-                # 表示用データフレームの構築（万が一のデータ型エラーを防ぐため安全に処理）
-                disp_rows = []
-                for _, r in ma_df.iterrows():
-                    disp_rows.append({
-                        "戦闘モード": r["モード"],
-                        "戦闘数": int(r["battles"]),
-                        "勝率": f"{r['win_rate']:.2f}%",
-                        "生存率": f"{r['survived_rate']:.2f}%",
-                        "K/D": f"{r['kd']:.2f}",
-                        "平均与ダメージ": f"{int(r['avg_damage']):,}"
-                    })
-                st.dataframe(pd.DataFrame(disp_rows), use_container_width=True, hide_index=True)
-                
-                # ─── グラフ描画の完全安全化 ───
-                if not ma_df.empty and ma_df["battles"].sum() > 0:
-                    # すべてのモードで勝率が0（まだ戦闘がない、または引き算で0になった）の場合はcolor判定を外す
-                    if (ma_df["win_rate"] == 0).all():
-                        fig_m = px.bar(ma_df, x="モード", y="battles", title="モード別出撃割合")
+                        fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
+                        st.plotly_chart(fig_m, use_container_width=True)
                     else:
-                        fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
-                    
-                    fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
-                    st.plotly_chart(fig_m, use_container_width=True)
+                        st.info("📊 指定された期間内に新しい戦闘データ（差分）が記録されていません。累積データを確認するには、左側の期間プリセットを『全期間』に変更するか、複数日のZIPファイルを同時にアップロードしてください。")
                 else:
-                    st.info("📊 指定された期間内に新しい戦闘データ（差分）が記録されていません。累積データを確認するには、左側の期間プリセットを『全期間』に変更するか、複数日のZIPファイルを同時にアップロードしてください。")
-            else:
-                st.info("対応する戦闘モード別データが見つかりません。")
+                    st.info("対応する戦闘モード別データが見つかりません。")
         else:
             st.info("WOWSL_Battle_Types_Statistics.csv が見つかりません。")
 
