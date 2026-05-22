@@ -421,7 +421,7 @@ def main():
                 template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)',
                 xaxis_title="記録日", yaxis_title=metric_selector, hovermode="x unified"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("💡 異なる日付のZIPファイルを2つ以上読み込ませることで、自動的に時系列推移グラフが生成されます。")
 
@@ -455,18 +455,17 @@ def main():
                         "K/D": f"{r['kd']:.2f}",
                         "平均与ダメージ": f"{int(r['avg_damage']):,}"
                     })
-                st.dataframe(pd.DataFrame(disp_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(disp_rows), width='stretch', hide_index=True)
                 
                 # ─── グラフ描画の完全安全化 ───
                 if not ma_df.empty and ma_df["battles"].sum() > 0:
-                    # すべてのモードで勝率データが0、またはデータ数が極端に少ない場合のクラッシュ防止
                     if (ma_df["win_rate"] == 0).all() or len(ma_df) <= 1:
                         fig_m = px.bar(ma_df, x="モード", y="battles", title="モード別出撃割合")
                     else:
-                        fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
+                        fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="blues", title="モード別出撃割合")
                     
                     fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
-                    st.plotly_chart(fig_m, use_container_width=True)
+                    st.plotly_chart(fig_m, width='stretch')
                 else:
                     st.info("📊 グラフを表示するための戦闘データ（差分）がありません。全期間を選択するか、複数日分のZIPをアップロードしてください。")
             else:
@@ -488,14 +487,14 @@ def main():
                 t_sum = latest_s.groupby('_SHIP_TYPE').sum(numeric_only=True).reset_index()
                 fig_t = px.pie(t_sum, values='BATTLES_COUNT', names='_SHIP_TYPE', hole=0.4, color_discrete_sequence=px.colors.sequential.Electric)
                 fig_t.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig_t, use_container_width=True)
+                st.plotly_chart(fig_t, width='stretch')
                 
             with col_g2:
                 st.subheader("国家別戦闘数ランキング")
                 n_sum = latest_s.groupby('_NATION').sum(numeric_only=True).reset_index().sort_values(by='BATTLES_COUNT', ascending=False)
-                fig_n = px.bar(n_sum, x='_NATION', y='BATTLES_COUNT', color='BATTLES_COUNT', color_continuous_scale='Electric')
+                fig_n = px.bar(n_sum, x='_NATION', y='BATTLES_COUNT', color='BATTLES_COUNT', color_continuous_scale='electric')
                 fig_n.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig_n, use_container_width=True)
+                st.plotly_chart(fig_n, width='stretch')
         else:
             st.info("艦種別マッピングを構成するデータがありません。")
 
@@ -536,7 +535,7 @@ def main():
                 })
                 
             if records_list:
-                st.dataframe(pd.DataFrame(records_list).sort_values(by="戦闘数", ascending=False), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(records_list).sort_values(by="戦闘数", ascending=False), width='stretch', hide_index=True)
             else:
                 st.info("条件に一致する艦艇データがありません。")
 
