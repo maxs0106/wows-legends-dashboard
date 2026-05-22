@@ -484,7 +484,7 @@ def main():
             
             mode_analytics = []
             for code, name in BATTLE_TYPE_CODE_MAP.items():
-                m_row = bt_latest[bt_latest['TYPE'] == code]
+                m_row = bt_latest[bt_latest['TYPE'].astype(str) == str(code)]
                 if not m_row.empty:
                     m_kpi = calc_metrics_from_row(m_row)
                     m_kpi['モード'] = name
