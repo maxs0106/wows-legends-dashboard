@@ -490,7 +490,7 @@ def main():
                     m_kpi['モード'] = name
                     mode_analytics.append(m_kpi)
                     
-            if mode_analytics:
+           if mode_analytics:
                 ma_df = pd.DataFrame(mode_analytics)
                 disp_df = pd.DataFrame({
                     "戦闘モード": ma_df["モード"], "戦闘数": ma_df["battles"],
@@ -499,9 +499,13 @@ def main():
                 })
                 st.dataframe(disp_df, use_container_width=True, hide_index=True)
                 
-                fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
-                fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig_m, use_container_width=True)
+                # 安全装置：データが1行以上、かつ戦闘数が1以上のときだけグラフを描画する
+                if not ma_df.empty and ma_df["battles"].sum() > 0:
+                    fig_m = px.bar(ma_df, x="モード", y="battles", color="win_rate", color_continuous_scale="cool", title="モード別出撃割合")
+                    fig_m.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_m, use_container_width=True)
+                else:
+                    st.info("📊 グラフを表示するための有効な戦闘データがまだありません。")
             else:
                 st.info("対応する戦闘モード別データが見つかりません。")
         else:
