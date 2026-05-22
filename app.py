@@ -198,12 +198,13 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
         df_concat = pd.concat(dfs, ignore_index=True)
         df_concat = df_concat.sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
         
+        # ⚠️ 重複削除の条件に「艦艇名（VEHICLE_NAME）+戦闘モード（TYPE）」を含めるように修正し、データ消失を防止
         if key == "account_stats":
             df_concat = df_concat.drop_duplicates(subset=['_SNAPSHOT_DATE'], keep='last')
         elif key == "battle_types" and 'TYPE' in df_concat.columns:
             df_concat = df_concat.drop_duplicates(subset=['_SNAPSHOT_DATE', 'TYPE'], keep='last')
-        elif key == "ship_stats" and 'VEHICLE_NAME' in df_concat.columns:
-            df_concat = df_concat.drop_duplicates(subset=['_SNAPSHOT_DATE', 'VEHICLE_NAME'], keep='last')
+        elif key == "ship_stats" and 'VEHICLE_NAME' in df_concat.columns and 'TYPE' in df_concat.columns:
+            df_concat = df_concat.drop_duplicates(subset=['_SNAPSHOT_DATE', 'VEHICLE_NAME', 'TYPE'], keep='last')
         elif key == "clans":
             df_concat = df_concat.drop_duplicates(keep='first')
             
@@ -217,6 +218,7 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty:
         return {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
     
+    # 複数行（艦艇ごと、モードごと）を完全にマージして集計
     battles = float(df['BATTLES_COUNT'].sum() if 'BATTLES_COUNT' in df.columns else 0)
     wins = float(df['WINS'].sum() if 'WINS' in df.columns else 0)
     survived = float(df['SURVIVED'].sum() if 'SURVIVED' in df.columns else 0)
@@ -270,7 +272,7 @@ def render_kpi_block(metrics: Dict[str, Any]):
 # 6. メインコントロール
 # ==========================================
 def main():
-    st.title("⚓ WoWs Legends 戦績ダッシュボード")
+    st.title("⚓ WoWs Legends 高級戦績ダッシュボード")
     st.markdown("`Production-Ready Data Platform`")
     
     st.sidebar.header("📁 データインポート")
@@ -346,16 +348,33 @@ def main():
     with t_summary:
         st.markdown('<div class="section-header">🏆 指定期間の総合パフォーマンス</div>', unsafe_allow_html=True)
         
-        if not ship_df.empty:
-            # 最新日と最古日のスナップショット日を特定
-            max_snapshot_date = ship_df['_SNAPSHOT_DATE'].max()
-            
-            if preset == "全期間":
-                # 全期間の場合は単純に「一番新しいログの累計データ」をそのまま表示（引き算しない）
-                df_latest_all = ship_df[ship_df['_SNAPSHOT_DATE'] == max_snapshot_date]
-                global_kpi = calc_metrics_from_row(df_latest_all)
+        if preset == "全期間":
+            # 💡 【100%正確な全期間処理】アカウント全体の生涯確定データを優先的に読み込み
+            bt_df = data["battle_types"]
+            if not bt_df.empty:
+                max_snapshot_date = bt_df['_SNAPSHOT_DATE'].max()
+                latest_bt_snapshot = bt_df[bt_df['_SNAPSHOT_DATE'] == max_snapshot_date]
+                global_kpi = calc_metrics_from_row(latest_bt_snapshot)
+            elif not ship_df.empty:
+                max_snapshot_date = ship_df['_SNAPSHOT_DATE'].max()
+                latest_ship_snapshot = ship_df[ship_df['_SNAPSHOT_DATE'] == max_snapshot_date]
+                global_kpi = calc_metrics_from_row(latest_ship_snapshot)
             else:
-                # 期間指定がある場合は、その範囲内の「最新」と「最古」で差分を計算
+                acc_df = data["account_stats"]
+                if not acc_df.empty:
+                    max_snapshot_date = acc_df['_SNAPSHOT_DATE'].max()
+                    latest_acc = acc_df[acc_df['_SNAPSHOT_DATE'] == max_snapshot_date].iloc[0]
+                    global_kpi = {
+                        "battles": int(latest_acc.get('BATTLES_COUNT', 0)),
+                        "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0
+                    }
+                else:
+                    global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
+            render_kpi_block(global_kpi)
+            
+        else:
+            # ⏱️ 期間指定（差分引き算処理）
+            if not ship_df.empty:
                 f_ship = ship_df[(ship_df['_SNAPSHOT_DATE'].dt.date >= start_d) & (ship_df['_SNAPSHOT_DATE'].dt.date <= end_d)]
                 
                 if not f_ship.empty:
@@ -366,17 +385,17 @@ def main():
                     df_min_snap = f_ship[f_ship['_SNAPSHOT_DATE'] == min_date_in_f]
                     
                     if max_date_in_f == min_date_in_f:
-                        # 該当期間に1日分しかデータがない場合は、その日の累計スタッツを表示
                         global_kpi = calc_metrics_from_row(df_max_snap)
                     else:
-                        v_max = df_max_snap.set_index('VEHICLE_NAME')
-                        v_min = df_min_snap.set_index('VEHICLE_NAME')
+                        # ⚠️ 重複バグ防止のため、複合インデックス（艦艇名×戦闘モード）を作成して正確に引き算
+                        v_max = df_max_snap.set_index(['VEHICLE_NAME', 'TYPE'])
+                        v_min = df_min_snap.set_index(['VEHICLE_NAME', 'TYPE'])
                         
-                        common_ships = v_max.index.intersection(v_min.index)
+                        common_idx = v_max.index.intersection(v_min.index)
                         diff_rows = []
-                        for s in common_ships:
-                            r_max = v_max.loc[s]
-                            r_min = v_min.loc[s]
+                        for idx in common_idx:
+                            r_max = v_max.loc[idx]
+                            r_min = v_min.loc[idx]
                             diff_rows.append({
                                 'BATTLES_COUNT': max(0, r_max['BATTLES_COUNT'] - r_min['BATTLES_COUNT']),
                                 'WINS': max(0, r_max['WINS'] - r_min['WINS']),
@@ -387,9 +406,9 @@ def main():
                                 '_ESTIMATED_TIER': r_max['_ESTIMATED_TIER']
                             })
                         
-                        new_ships = v_max.index.difference(v_min.index)
-                        for s in new_ships:
-                            r_max = v_max.loc[s]
+                        new_idx = v_max.index.difference(v_min.index)
+                        for idx in new_idx:
+                            r_max = v_max.loc[idx]
                             diff_rows.append({
                                 'BATTLES_COUNT': r_max['BATTLES_COUNT'], 'WINS': r_max['WINS'],
                                 'SURVIVED': r_max['SURVIVED'], 'DAMAGE_DEALT': r_max['DAMAGE_DEALT'],
@@ -403,10 +422,10 @@ def main():
                 else:
                     st.info("選択された期間のデータスナップショットがありません。")
                     global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
-            
+            else:
+                global_kpi = {"battles": 0, "win_rate": 0.0, "survived_rate": 0.0, "avg_damage": 0.0, "avg_frags": 0.0, "avg_xp": 0.0, "kd": 0.0, "avg_tier": 5.0}
+                
             render_kpi_block(global_kpi)
-        else:
-            st.warning("戦績計算に必要なCSVファイルが不足しています。")
 
         st.markdown('<div class="section-header">📈 パフォーマンス成長トレンド (時系列推移)</div>', unsafe_allow_html=True)
         if not ship_df.empty and len(ship_df['_SNAPSHOT_DATE'].unique()) > 1:
