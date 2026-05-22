@@ -325,7 +325,7 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
 # 5. メインコントロール
 # ==========================================
 def main():
-    st.title("⚓ WoWs Legends 高級戦績ダッシュボード")
+    st.title("⚓ WoWs Legends stats")
     st.markdown("`Fleet Intelligence Platform` | ⏱️ 期間設定: **内部データ自動解析マトリクス**")
     
     st.sidebar.header("📁 データインポート")
@@ -466,13 +466,13 @@ def main():
 
         # 指標行の設定
         row_indicators = [
-            ("⚔️ 総戦闘数", "battles", "{:,} 戦"),
-            ("🏆 総合勝率", "win_rate", "{:.2f} %"),
-            ("🛡️ 生存率", "survived_rate", "{:.2f} %"),
-            ("💥 平均与ダメージ", "avg_damage", "{:,.0f} ダメージ"),
-            ("💀 K/D 比", "kd", "{:.2f}"),
-            ("🎯 平均撃沈数", "avg_frags", "{:.2f} 隻"),
-            ("⭐ 平均取得経験値", "avg_xp", "{:,.0f}")
+            (" 戦闘", "battles", "{:,} 戦"),
+            (" 勝率", "win_rate", "{:.2f} %"),
+            (" 生存", "survived_rate", "{:.2f} %"),
+            (" 平均与ダメージ", "avg_damage", "{:,.0f} ダメージ"),
+            (" K/D 比", "kd", "{:.2f}"),
+            (" 平均撃沈数", "avg_frags", "{:.2f} 隻"),
+            (" 平均取得経験値", "avg_xp", "{:,.0f}")
         ]
         
         # シックなHTMLテーブルのレンダリング
