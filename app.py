@@ -56,61 +56,57 @@ CSS_STYLE = """
         font-family: monospace;
     }
     
-    /* 💡 【ご要望】ゲームUIを再現したシックな特製マトリクスデータテーブルCSS */
+    /* 💡 【ご要望】ご提示画像に合わせたシックで硬派なミリタリー調マトリクスデザイン */
     .chic-matrix-container {
         margin: 20px 0;
         overflow-x: auto;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        border-radius: 6px;
-        border: 1px solid rgba(0, 242, 254, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        border: 1px solid #26354a;
+        border-radius: 4px;
     }
     .chic-table {
         width: 100%;
         border-collapse: collapse;
-        background-color: rgba(10, 25, 47, 0.4);
+        background-color: #0f1926;
         font-size: 0.95rem;
         text-align: left;
     }
     .chic-table th {
-        background: linear-gradient(180deg, #112240 0%, #0a192f 100%);
-        color: #00f2fe;
+        background-color: #1a2738;
+        color: #94a3b8;
         font-weight: 600;
-        padding: 14px 18px;
-        border-bottom: 2px solid rgba(0, 242, 254, 0.4);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        padding: 12px 16px;
+        border-bottom: 2px solid #2d3f57;
         font-size: 0.85rem;
+        letter-spacing: 0.5px;
     }
     .chic-table td {
-        padding: 14px 18px;
-        border-bottom: 1px solid rgba(0, 242, 254, 0.15);
-        color: #e2e8f0;
-        transition: all 0.2s ease;
+        padding: 14px 16px;
+        border-bottom: 1px solid #1e2d42;
+        color: #cbd5e1;
     }
     .chic-table tr:last-child td {
         border-bottom: none;
     }
     .chic-table tr:hover td {
-        background-color: rgba(0, 242, 254, 0.06);
+        background-color: #162436;
         color: #ffffff;
     }
     .chic-indicator-name {
-        font-weight: 600;
-        color: #8892b0 !important;
-        background-color: rgba(17, 34, 64, 0.3);
-        width: 22%;
-        border-right: 1px solid rgba(0, 242, 254, 0.15);
+        font-weight: 500;
+        color: #94a3b8 !important;
+        background-color: #131f30;
+        width: 25%;
+        border-right: 1px solid #1e2d42;
     }
     .chic-value-lifetime {
-        font-weight: 700;
+        font-weight: 600;
         color: #ffffff;
-        text-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
+        background-color: rgba(255, 255, 255, 0.01);
     }
     .chic-value-period {
-        font-family: 'Courier New', Courier, monospace;
-        color: #a8b2d1;
+        color: #cbd5e1;
     }
-
     .empty-state {
         background: rgba(10, 25, 47, 0.4);
         border: 2px dashed rgba(0, 242, 254, 0.25);
@@ -189,8 +185,6 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
             with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
                 file_list = z.namelist()
                 temp_dfs = {}
-                
-                # 💡 【重要】ファイル名の日付に依存せず、CSVファイルの中身からエクスポート日付をメタ解析する
                 detected_date = None
                 
                 # 最初に対象のCSVを一通りスキャンしてデータ日付を特定する
@@ -210,17 +204,22 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                             df.columns = [c.strip().upper() for c in df.columns]
                             temp_dfs[key] = df
                             
-                            # Account Stats の更新日時カラムからエクスポート日付を正確にサンプリング
-                            if key == "account_stats" and 'DOSSIER_UPDATED_AT' in df.columns:
-                                val = str(df['DOSSIER_UPDATED_AT'].iloc[0]).strip()
-                                if val and val != "nan" and len(val) >= 10:
-                                    detected_date = datetime.strptime(val[:10], '%Y-%m-%d').date()
-                            elif key == "account_stats" and 'UPDATED_AT' in df.columns:
-                                val = str(df['UPDATED_AT'].iloc[0]).strip()
-                                if val and val != "nan" and len(val) >= 10:
-                                    detected_date = datetime.strptime(val[:10], '%Y-%m-%d').date()
+                            # 💡 【エラー修正解決】タイムスタンプがUNIX秒（数値）か文字列かを自動判別してパース
+                            if key == "account_stats":
+                                target_col = 'DOSSIER_UPDATED_AT' if 'DOSSIER_UPDATED_AT' in df.columns else ('UPDATED_AT' if 'UPDATED_AT' in df.columns else None)
+                                if target_col:
+                                    raw_val = str(df[target_col].iloc[0]).strip()
+                                    if raw_val and raw_val != "nan":
+                                        # 数値（UNIX時間）のみで構成されている場合
+                                        if raw_val.isdigit() or (raw_val.replace('.', '', 1).isdigit() and '.' in raw_val):
+                                            timestamp_sec = float(raw_val)
+                                            detected_date = datetime.fromtimestamp(timestamp_sec).date()
+                                        else:
+                                            # 通常の YYYY-MM-DD 形式の場合
+                                            if len(raw_val) >= 10:
+                                                detected_date = datetime.strptime(raw_val[:10], '%Y-%m-%d').date()
                 
-                # もしCSV内部から日付が取れなかった場合は従来通りファイル名からフォールバック
+                # もし内部から日付が取れなかった場合はファイル名から取得を試みる
                 if not detected_date:
                     date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', up_file.name)
                     if date_matches:
@@ -232,7 +231,7 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                         else:
                             detected_date = date.today()
                 
-                # 確定したスナップショット日付を付与してリストに格納
+                # 確定したスナップショット日付を付与して格納
                 matched_count = 0
                 for key, df in temp_dfs.items():
                     df['_SNAPSHOT_DATE'] = pd.to_datetime(detected_date)
@@ -240,7 +239,7 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                     matched_count += 1
                             
                 if matched_count > 0:
-                    success_zips.append(f"{up_file.name} -> [自動解析日付: {detected_date.strftime('%Y-%m-%d')}]")
+                    success_zips.append(f"{up_file.name} -> [確定日: {detected_date.strftime('%Y-%m-%d')}]")
                 else:
                     errors.append(f"{up_file.name}: 有効なWoWsLファイル構造が見つかりません。")
         except Exception as e:
@@ -442,9 +441,10 @@ def main():
         
         # 2️⃣ 各CSVファイル間の期間別差分 (日付が複数検知された場合)
         if len(unique_dates) > 1:
-            for i in range(len(unique_dates) - 1, 0, -1):
-                d_end = unique_dates[i]
-                d_start = unique_dates[i-1]
+            # 昇順のままループを回して、古い順から新しい順へ期間を拡張
+            for i in range(len(unique_dates) - 1):
+                d_start = unique_dates[i]
+                d_end = unique_dates[i+1]
                 
                 period_label = f"{d_start.strftime('%Y%m%d')} 〜 {d_end.strftime('%Y%m%d')}"
                 
@@ -464,7 +464,7 @@ def main():
                     
                 matrix_columns[period_label] = (period_kpi, False)
 
-        # 💡 【ご要望】ゲーム内のUIに準拠したシックでスタイリッシュなHTMLカスタムテーブルの生成
+        # 指標行の設定
         row_indicators = [
             ("⚔️ 総戦闘数", "battles", "{:,} 戦"),
             ("🏆 総合勝率", "win_rate", "{:.2f} %"),
@@ -475,6 +475,7 @@ def main():
             ("⭐ 平均取得経験値", "avg_xp", "{:,.0f}")
         ]
         
+        # シックなHTMLテーブルのレンダリング
         html_table = '<div class="chic-matrix-container"><table class="chic-table"><thead><tr>'
         html_table += '<th>戦績インジケーター</th>'
         for col_name in matrix_columns.keys():
@@ -492,7 +493,6 @@ def main():
             
         html_table += '</tbody></table></div>'
         
-        # HTMLを流し込んで描画
         st.markdown(html_table, unsafe_allow_html=True)
 
         if not mode_filtered_ship_df.empty and len(mode_filtered_ship_df['_SNAPSHOT_DATE'].unique()) > 1:
@@ -512,8 +512,6 @@ def main():
             fig = px.line(td_df, x='date', y=metric_selector, markers=True, color_discrete_sequence=['#00f2fe'])
             fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
             st.plotly_chart(fig, width='stretch')
-        else:
-            st.info("💡 異なる日付のZIPアーカイブを複数同時に読み込ませることで、自動的に上記のマトリクス表へ各期間の推移列が拡張されます。")
 
     # ------------------------------------------
     # Tab 2: 戦闘モード別全体一覧
