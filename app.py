@@ -23,99 +23,20 @@ st.set_page_config(
 
 CSS_STYLE = """
 <style>
-    .stApp {
-        background: radial-gradient(circle at 50% 15%, #0a192f 0%, #020c1b 100%);
-        color: #e2e8f0;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    section[data-testid="stSidebar"] {
-        background-color: rgba(2, 12, 27, 0.85) !important;
-        backdrop-filter: blur(12px);
-        border-right: 1px solid rgba(0, 242, 254, 0.2);
-    }
-    .section-header {
-        border-left: 4px solid #00f2fe;
-        padding-left: 12px;
-        margin-top: 24px;
-        margin-bottom: 16px;
-        color: #ffffff;
-        font-weight: 600;
-        font-size: 1.2rem;
-        letter-spacing: 0.5px;
-    }
-    .date-badge {
-        background: rgba(0, 242, 254, 0.1);
-        border: 1px solid #00f2fe;
-        color: #00f2fe;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        display: inline-block;
-        margin-bottom: 5px;
-        font-family: monospace;
-    }
+    .stApp { background-color: #0b131e; color: #d1d5db; font-family: sans-serif; }
+    section[data-testid="stSidebar"] { background-color: #070d14 !important; border-right: 1px solid #1e293b; }
     
-    /* 💡 【ご要望】ご提示画像に合わせたシックで硬派なミリタリー調マトリクスデザイン */
-    .chic-matrix-container {
-        margin: 20px 0;
-        overflow-x: auto;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-        border: 1px solid #26354a;
-        border-radius: 4px;
-    }
-    .chic-table {
-        width: 100%;
-        border-collapse: collapse;
-        background-color: #0f1926;
-        font-size: 0.95rem;
-        text-align: left;
-    }
-    .chic-table th {
-        background-color: #1a2738;
-        color: #94a3b8;
-        font-weight: 600;
-        padding: 12px 16px;
-        border-bottom: 2px solid #2d3f57;
-        font-size: 0.85rem;
-        letter-spacing: 0.5px;
-    }
-    .chic-table td {
-        padding: 14px 16px;
-        border-bottom: 1px solid #1e2d42;
-        color: #cbd5e1;
-    }
-    .chic-table tr:last-child td {
-        border-bottom: none;
-    }
-    .chic-table tr:hover td {
-        background-color: #162436;
-        color: #ffffff;
-    }
-    .chic-indicator-name {
-        font-weight: 500;
-        color: #94a3b8 !important;
-        background-color: #131f30;
-        width: 25%;
-        border-right: 1px solid #1e2d42;
-    }
-    .chic-value-lifetime {
-        font-weight: 600;
-        color: #ffffff;
-        background-color: rgba(255, 255, 255, 0.01);
-    }
-    .chic-value-period {
-        color: #cbd5e1;
-    }
-    .empty-state {
-        background: rgba(10, 25, 47, 0.4);
-        border: 2px dashed rgba(0, 242, 254, 0.25);
-        border-radius: 12px;
-        padding: 60px 20px;
-        text-align: center;
-        margin: 40px auto;
-        max-width: 750px;
-    }
+    /* 表のデザイン：イラストを排除した極限までシンプルなグリッド */
+    .matrix-container { margin: 10px 0 25px 0; overflow-x: auto; border: 1px solid #2d3748; border-radius: 3px; }
+    .flat-table { width: 100%; border-collapse: collapse; background-color: #0f172a; font-size: 0.9rem; text-align: left; }
+    .flat-table th { background-color: #1e293b; color: #94a3b8; font-weight: 600; padding: 10px 14px; border-bottom: 2px solid #334155; }
+    .flat-table td { padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; }
+    .flat-table tr:hover td { background-color: #1e293b; }
+    .idx-name { font-weight: 500; color: #94a3b8 !important; background-color: #131c2e; width: 20%; border-right: 1px solid #1e293b; }
+    .val-lt { font-weight: 600; color: #ffffff; }
+    
+    /* ボタン上のラベル用 */
+    .mode-txt { font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; font-weight: 500; }
 </style>
 """
 st.markdown(CSS_STYLE, unsafe_allow_html=True)
@@ -413,105 +334,58 @@ def main():
         "📈 期間マトリクス・総合戦績", "⚔️ 戦闘モード全体一覧", "🌍 国家・艦種", "🚢 艦艇別データ", "🏆 自己ベスト", "🛡️ クラン履歴"
     ])
 
-    # ------------------------------------------
-    # Tab 1: 総合戦績（シックなデザインのマトリクス統合表）
+  　# ------------------------------------------
+    # Tab 1: 総合戦績（マトリクス表）
     # ------------------------------------------
     with t_summary:
-        st.markdown(f'<div class="section-header">🏆 期間別マトリクス・スタッツマトリクス ({target_mode_str})</div>', unsafe_allow_html=True)
+        st.markdown('<div class="mode-txt">戦闘タイプ選択</div>', unsafe_allow_html=True)
+        if 'mode' not in st.session_state: st.session_state.mode = 1
         
-        bt_df = data["battle_types"]
-        mode_bt_df = bt_df[bt_df['TYPE'] == selected_mode_code] if not bt_df.empty else pd.DataFrame()
-        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == selected_mode_code] if not ship_df.empty else pd.DataFrame()
-        
-        matrix_columns = {}
-        
-        # 1️⃣ 全期間 (最新の生涯戦績データ)
-        if not mode_bt_df.empty:
-            latest_snap_date = mode_bt_df['_SNAPSHOT_DATE'].max()
-            latest_row = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == latest_snap_date]
-            global_kpi = calc_metrics_from_row(latest_row)
-        elif not mode_filtered_ship_df.empty:
-            latest_snap_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
-            latest_row = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == latest_snap_date]
-            global_kpi = calc_metrics_from_row(latest_row)
-        else:
-            global_kpi = calc_metrics_from_row(pd.DataFrame())
-            
-        matrix_columns["全期間 (Lifetime)"] = (global_kpi, True)
-        
-        # 2️⃣ 各CSVファイル間の期間別差分 (日付が複数検知された場合)
-        if len(unique_dates) > 1:
-            # 昇順のままループを回して、古い順から新しい順へ期間を拡張
-            for i in range(len(unique_dates) - 1):
-                d_start = unique_dates[i]
-                d_end = unique_dates[i+1]
-                
-                period_label = f"{d_start.strftime('%Y%m%d')} 〜 {d_end.strftime('%Y%m%d')}"
-                
-                if not mode_bt_df.empty:
-                    df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_end]
-                    df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_start]
-                elif not mode_filtered_ship_df.empty:
-                    df_end_snap = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == d_end]
-                    df_start_snap = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == d_start]
-                else:
-                    df_end_snap, df_start_snap = pd.DataFrame(), pd.DataFrame()
-                
-                if not df_end_snap.empty and not df_start_snap.empty:
-                    period_kpi = calc_period_diff_metrics(df_end_snap, df_start_snap)
-                else:
-                    period_kpi = calc_metrics_from_row(pd.DataFrame())
-                    
-                matrix_columns[period_label] = (period_kpi, False)
+        # 横並びの小さなボタンの配置
+        c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1.2, 4])
+        if c1.button("通常戦", use_container_width=True, type="primary" if st.session_state.mode==1 else "secondary"): st.session_state.mode=1; st.rerun()
+        if c2.button("AI戦", use_container_width=True, type="primary" if st.session_state.mode==2 else "secondary"): st.session_state.mode=2; st.rerun()
+        if c3.button("ランク戦", use_container_width=True, type="primary" if st.session_state.mode==3 else "secondary"): st.session_state.mode=3; st.rerun()
+        if c4.button("イベント", use_container_width=True, type="primary" if st.session_state.mode==4 else "secondary"): st.session_state.mode=4; st.rerun()
 
-        # 指標行の設定
-        row_indicators = [
-            (" 戦闘", "battles", "{:,} 戦"),
-            (" 勝率", "win_rate", "{:.2f} %"),
-            (" 生存", "survived_rate", "{:.2f} %"),
-            (" 平均与ダメージ", "avg_damage", "{:,.0f} ダメージ"),
-            (" K/D 比", "kd", "{:.2f}"),
-            (" 平均撃沈数", "avg_frags", "{:.2f} 隻"),
-            (" 平均取得経験値", "avg_xp", "{:,.0f}")
+        m = st.session_state.mode
+        f_bt = data['bt'][data['bt']['TYPE']==m] if not data['bt'].empty else pd.DataFrame()
+        f_sp = data['ship'][data['ship']['TYPE']==m] if not data['ship'].empty else pd.DataFrame()
+        
+        cols = {}
+        # 全期間データの集計
+        lt_df = f_bt if not f_bt.empty else f_sp
+        cols["全期間"] = (calc_kpi(lt_df[lt_df['_DATE']==lt_df['_DATE'].max()]) if not lt_df.empty else calc_kpi(pd.DataFrame()), True)
+        
+        # 期間別差分の計算
+        if len(dates) > 1:
+            for i in range(len(dates)-1):
+                d1, d2 = dates[i], dates[i+1]
+                lbl = f"{pd.to_datetime(d1).strftime('%Y%m%d')}～{pd.to_datetime(d2).strftime('%Y%m%d')}"
+                src = f_bt if not f_bt.empty else f_sp
+                if not src.empty:
+                    cols[lbl] = (calc_diff(src[src['_DATE']==d2], src[src['_DATE']==d1]), False)
+
+        # イラスト（絵文字）を完全に排除した項目定義
+        rows = [
+            ("戦闘数", "b", "{:,}"),
+            ("勝率", "w", "{:.2f}%"),
+            ("生存率", "s", "{:.2f}%"),
+            ("平均与ダメ", "d", "{:,.0f}"),
+            ("K/D比", "k", "{:.2f}")
         ]
         
-        # シックなHTMLテーブルのレンダリング
-        html_table = '<div class="chic-matrix-container"><table class="chic-table"><thead><tr>'
-        html_table += '<th>戦績インジケーター</th>'
-        for col_name in matrix_columns.keys():
-            html_table += f'<th>{col_name}</th>'
-        html_table += '</tr></thead><tbody>'
-        
-        for label, key, fmt in row_indicators:
-            html_table += f'<tr><td class="chic-indicator-name">{label}</td>'
-            for col_name, (kpi, is_lifetime) in matrix_columns.items():
-                val = kpi[key]
-                formatted_val = fmt.format(val)
-                cell_class = "chic-value-lifetime" if is_lifetime else "chic-value-period"
-                html_table += f'<td class="{cell_class}">{formatted_val}</td>'
-            html_table += '</tr>'
-            
-        html_table += '</tbody></table></div>'
-        
-        st.markdown(html_table, unsafe_allow_html=True)
-
-        if not mode_filtered_ship_df.empty and len(mode_filtered_ship_df['_SNAPSHOT_DATE'].unique()) > 1:
-            st.markdown(f'<div class="section-header">📈 パフォーマンス成長トレンド (時系列履歴グラフ)</div>', unsafe_allow_html=True)
-            trend_data = []
-            for d, group in mode_filtered_ship_df.groupby('_SNAPSHOT_DATE'):
-                metrics_d = calc_metrics_from_row(group)
-                metrics_d['date'] = d
-                trend_data.append(metrics_d)
-                
-            td_df = pd.DataFrame(trend_data)
-            metric_selector = st.selectbox(
-                "表示する指標を変更", 
-                ["win_rate", "avg_damage", "avg_xp", "kd"],
-                format_func=lambda x: {"win_rate":"勝率 (%)", "avg_damage":"平均与ダメージ", "avg_xp":"平均取得経験値", "kd":"K/D 比"}[x]
-            )
-            fig = px.line(td_df, x='date', y=metric_selector, markers=True, color_discrete_sequence=['#00f2fe'])
-            fig.update_layout(template='plotly_dark', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(10,25,47,0.4)')
-            st.plotly_chart(fig, width='stretch')
+        # フラットなHTMLテーブルを生成
+        html = '<div class="matrix-container"><table class="flat-table"><thead><tr><th>データ項目</th>'
+        for k in cols.keys(): html += f'<th>{k}</th>'
+        html += '</tr></thead><tbody>'
+        for l, k, fmt in rows:
+            html += f'<tr><td class="idx-name">{l}</td>'
+            for c_lbl, (kpi, is_lt) in cols.items():
+                html += f'<td class="{"val-lt" if is_lt else ""}" style="color:{"" if is_lt else "#cbd5e1"}">{fmt.format(kpi[k])}</td>'
+            html += '</tr>'
+        html += '</tbody></table></div>'
+        st.markdown(html, unsafe_allow_html=True)
 
     # ------------------------------------------
     # Tab 2: 戦闘モード別全体一覧
