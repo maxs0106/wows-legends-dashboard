@@ -334,30 +334,27 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得：日時文字列を厳密に解析して最新行を抽出
+    # クラン名取得：列名指定をやめ、インデックスで確実に拾う
     clan_tag = "未所属"
     if not data["clans"].empty:
-        clan_df = data["clans"].copy()
+        # 1. データの状態を確認（インデックスで列を確認）
+        df = data["clans"]
         
-        # 1. CREATED_AT を日時型(datetime)に変換 (失敗した行は NaT になる)
-        if 'CREATED_AT' in clan_df.columns:
-            clan_df['dt_created'] = pd.to_datetime(clan_df['CREATED_AT'], errors='coerce')
+        # 2. 列のインデックスを把握 (デバッグ出力)
+        # st.write("カラム一覧:", df.columns.tolist())
+        
+        # 3. 'CLAN_NAME' という名前ではなく、0番目や特定の列にある可能性を考慮して
+        #    'CLAN_NAME' という列が本当にあるか確認し、あれば抽出
+        if 'CLAN_NAME' in df.columns:
+            # 最後の行を対象にする
+            last_val = df['CLAN_NAME'].iloc[-1]
+            if pd.notna(last_val) and str(last_val).strip() != "":
+                clan_tag = str(last_val).strip()
         else:
-            clan_df['dt_created'] = pd.NaT
-            
-        # 2. CREATED_AT がない場合は _SNAPSHOT_DATE を日時型で補完
-        mask = clan_df['dt_created'].isna()
-        if mask.any():
-            clan_df.loc[mask, 'dt_created'] = pd.to_datetime(clan_df.loc[mask, '_SNAPSHOT_DATE'], errors='coerce')
-            
-        # 3. 最も新しい日時を持つ行のインデックスを取得
-        latest_idx = clan_df['dt_created'].idxmax()
-        latest_row = clan_df.loc[latest_idx]
-        
-        # 4. CLAN_NAME が有効か確認して取得
-        val = latest_row.get('CLAN_NAME')
-        if pd.notna(val) and str(val).strip() != "":
-            clan_tag = str(val).strip()
+            # もし 'CLAN_NAME' という列名が見つからない場合、
+            # 最初の列（0番目）にデータが入っていないか試す
+            last_val = df.iloc[-1, 0] 
+            clan_tag = str(last_val).strip()
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
