@@ -334,27 +334,24 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得：列名指定をやめ、インデックスで確実に拾う
+    # クラン名取得：日付を評価して最新行を抽出する決定版
     clan_tag = "未所属"
     if not data["clans"].empty:
-        # 1. データの状態を確認（インデックスで列を確認）
-        df = data["clans"]
+        df = data["clans"].copy()
         
-        # 2. 列のインデックスを把握 (デバッグ出力)
-        # st.write("カラム一覧:", df.columns.tolist())
+        # 1. CREATED_ATを確実に日時型へ変換
+        df['dt_created'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
         
-        # 3. 'CLAN_NAME' という名前ではなく、0番目や特定の列にある可能性を考慮して
-        #    'CLAN_NAME' という列が本当にあるか確認し、あれば抽出
-        if 'CLAN_NAME' in df.columns:
-            # 最後の行を対象にする
-            last_val = df['CLAN_NAME'].iloc[-1]
-            if pd.notna(last_val) and str(last_val).strip() != "":
-                clan_tag = str(last_val).strip()
-        else:
-            # もし 'CLAN_NAME' という列名が見つからない場合、
-            # 最初の列（0番目）にデータが入っていないか試す
-            last_val = df.iloc[-1, 0] 
-            clan_tag = str(last_val).strip()
+        # 2. 日時データが正しく変換できた行だけに絞る
+        valid_rows = df.dropna(subset=['dt_created'])
+        
+        if not valid_rows.empty:
+            # 3. 日時(dt_created)が最大（最新）の行を取得
+            latest_row = valid_rows.loc[valid_rows['dt_created'].idxmax()]
+            
+            # 4. CLAN_NAME を取得
+            if pd.notna(latest_row['CLAN_NAME']):
+                clan_tag = str(latest_row['CLAN_NAME']).strip()
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
