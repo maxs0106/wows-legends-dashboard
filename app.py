@@ -232,19 +232,21 @@ def extract_zip_data(uploaded_files):
             
     return data, success_zips, errors
 
-def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
-    merged: Dict[str, pd.DataFrame] = {}
-    for key, dfs in raw_data.items():
-        if not dfs:
-            merged[key] = pd.DataFrame()
-            continue
-        df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
-        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
-        id_cols = ['_SNAPSHOT_DATE']
-        if key == 'battle_types': id_cols.append('TYPE')
-        if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
-        merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
-    return merged
+def merge_and_optimize(raw_data):
+    # 修正前:
+    # if not dfs: 
+    
+    # 修正後:
+    # データが空かどうかを判定するために .empty を使います
+    if not isinstance(raw_data, dict):
+        return None
+        
+    # ここで各データフレームが空でないかを確認する処理に変更してください
+    # 例えばこのように書きます
+    if 'clans' not in raw_data or raw_data['clans'].empty:
+        return raw_data # データがない場合はそのまま返す
+    
+    # 以降の処理...
 
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty or 'BATTLES_COUNT' not in df.columns or df['BATTLES_COUNT'].sum() <= 0:
