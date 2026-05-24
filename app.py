@@ -217,12 +217,14 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
+    # 2つの通算累積スナップショットの純粋な「差分（期間内だけの戦闘）」を計算
     b = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
     if b <= 0:
         return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
     d = b - float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum())
     return {
-        "battles": int(b), "win_rate": max(0.0, min(100.0, (float(df_new['WINS'].sum() - df_old['WINS'].sum()) / b * 100))),
+        "battles": int(b), 
+        "win_rate": max(0.0, min(100.0, (float(df_new['WINS'].sum() - df_old['WINS'].sum()) / b * 100))),
         "survived_rate": max(0.0, min(100.0, (float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum()) / b * 100))),
         "avg_damage": max(0.0, float(df_new['DAMAGE_DEALT'].sum() - df_old['DAMAGE_DEALT'].sum()) / b),
         "kd": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / (1.0 if d <= 0 else d)),
@@ -270,7 +272,6 @@ def main():
     # ------------------------------------------
     clan_tag, p_name = None, "プレイヤーデータ"
     
-    # 1. Account_Info / Account_Stats からの抽出
     if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
         if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
@@ -282,7 +283,6 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # 2. クランデータの抽出
     if not data["clans"].empty:
         l_clan = data["clans"].iloc[-1]
         for tag_col in ['TAG', 'CLAN_TAG', 'SHORT_NAME', 'CLAN_SHORT_NAME']:
@@ -290,10 +290,8 @@ def main():
                 clan_tag = str(l_clan[tag_col]).strip()
                 break
 
-    # 表示名構築: 【クラン名】プレイヤー名 の形式へ
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
-    # 💡 ACCOUNT CODEの行を完全に削除
     header_html = f"""
     <div class="game-header-container">
         <div class="game-title">WOWSL Legends Dashboard</div>
@@ -317,7 +315,6 @@ def main():
         if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
         current_mode = st.session_state.sel_mode
 
-        # --- 1段目: モード選択 ---
         st.markdown('<div class="mode-selection-header">■ STEP1: モード選択</div>', unsafe_allow_html=True)
         mode_order = ["通常", "AI", "ランク", "アリーナ", "闘争", "アーケード", "クラン戦", "軍記"]
         m_cols = st.columns(len(mode_order))
@@ -341,7 +338,6 @@ def main():
         if 'sel_team' not in st.session_state or st.session_state.sel_team not in actual_teams:
             st.session_state.sel_team = actual_teams[0]
 
-        # --- 2段目: 部隊形式選択 ---
         st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
         t_cols = st.columns(len(actual_teams))
         for idx, t_name in enumerate(actual_teams):
@@ -367,7 +363,7 @@ def main():
             global_kpi = calc_metrics_from_row(pd.DataFrame())
         matrix_columns["全期間"] = global_kpi
 
-        # 💡 【バグ修正】各期間のスナップショット日付を完全に分離抽出して独立計算
+        # 💡 【バグ完全修正】各期間を独立させて通算同士の引き算（差分）を厳密に適用
         period_keys = []
         if len(unique_dates) > 1:
             for i in range(len(unique_dates) - 1, 0, -1):
@@ -375,14 +371,16 @@ def main():
                 period_label = f"{d_start.strftime('%Y/%m/%d')}<br>～ {d_end.strftime('%Y/%m/%d')}"
                 period_keys.append(period_label)
                 
-                # 完全に独立した単一スナップショット行だけを取得（他ファイルが混ざらないよう厳密に等価判定）
+                # 指定日付の通算データを正確にピンポイント抽出
                 df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == pd.to_datetime(d_end)] if not mode_bt_df.empty else pd.DataFrame()
                 df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == pd.to_datetime(d_start)] if not mode_bt_df.empty else pd.DataFrame()
                 
+                # 💡 累積データのままではなく、必ず関数を通して「差分（期間内単体のデータ）」を計算して割り当てる
                 if not df_end_snap.empty and not df_start_snap.empty:
-                    matrix_columns[period_label] = calc_period_diff_metrics(df_end_snap, df_start_snap)
+                    diff_metrics = calc_period_diff_metrics(df_end_snap, df_start_snap)
+                    matrix_columns[period_label] = diff_metrics
                 else:
-                    matrix_columns[period_label] = calc_metrics_from_row(pd.DataFrame())
+                    matrix_columns[period_label] = {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
 
         row_indicators = [
             ("戦闘", "battles", "{:,}"), ("勝率", "win_rate", "{:.2f}%"),
