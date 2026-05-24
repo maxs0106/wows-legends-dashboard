@@ -387,7 +387,7 @@ def main():
         data["ship_stats"] = ship_df
 
     # ------------------------------------------
-    # ⚓ 1 & 2. タイトル & 【クラン名】ID のヘッダー表示
+    # ⚓ タイトル & 【クラン名】ID のヘッダー表示
     # ------------------------------------------
     clan_tag, clan_name, p_name, p_id = "---", "クラン未所属", "PlayerName", "xxxxxxxx"
     
@@ -423,7 +423,7 @@ def main():
     with t_summary:
         bt_df = data["battle_types"]
         
-        # 💡 モード（STEP1）の決定（固定オーダーから存在するものをアクティブ化）
+        # モード（STEP1）の決定（固定オーダーから存在するものをアクティブ化）
         available_modes = set([meta["mode"] for meta in BATTLE_TYPE_MAP.values()])
         if 'sel_mode' not in st.session_state:
             st.session_state.sel_mode = "通常"
@@ -441,10 +441,9 @@ def main():
                     st.session_state.sel_mode = m_name
                     st.rerun()
 
-        # 💡 改善点：選択されたモードにおける部隊形式（STEP2）を「データが空でもマスター定義から全て固定表示」
+        # モードにおける部隊形式（STEP2）を全て固定表示
         team_order = ["総合", "ソロ", "2人分隊", "3人分隊"]
         
-        # 現在のモード内で定義されている形式ボタンを抽出
         actual_teams = []
         for t_name in team_order:
             for tid, meta in BATTLE_TYPE_MAP.items():
@@ -490,9 +489,9 @@ def main():
             
         matrix_columns["全期間"] = global_kpi
 
-        # B. 期間別データの抽出（最新日付が左側に来る逆順配置仕様）
+        # B. 期間別データの抽出（逆順配置）
         period_keys = []
-        graph_periods = []  # グラフ用に時系列順のデータも保持するためのリスト
+        graph_periods = []
         
         if len(unique_dates) > 1:
             for i in range(len(unique_dates) - 1, 0, -1):
@@ -525,7 +524,7 @@ def main():
                     "order": i
                 })
 
-        # 行表示の定義インジケーター
+        # 行表示の定義
         row_indicators = [
             ("戦闘", "battles", "{:,}"), ("勝率", "win_rate", "{:.2f}%"),
             ("生還", "survived_rate", "{:.2f}%"), ("与ダメージ", "avg_damage", "{:,.0f}"),
@@ -533,7 +532,7 @@ def main():
             ("取得経験値", "avg_xp", "{:,.0f}")
         ]
 
-        # 📋 HTMLを用いた画像完全再現テーブルの出力
+        # HTMLマトリクス出力
         html_table = '<div class="matrix-scroll-wrapper"><table class="matrix-table"><thead><tr>'
         html_table += '<th class="sticky-indicator">各種データ</th>'
         html_table += '<th class="sticky-lifetime">全期間</th>'
@@ -562,17 +561,16 @@ def main():
         st.markdown(html_table, unsafe_allow_html=True)
 
         # ------------------------------------------
-        # 📈 📊 新機能: 総合戦績グラフィカルアナリティクス
+        # 📊 トレンド・グラフィカルアナリティクス
         # ------------------------------------------
         st.markdown('<div class="chart-section-title">📊 期間別トレンド・アナリティクス</div>', unsafe_allow_html=True)
         
-        # グラフ用データフレーム生成（時系列順に並び替え）
         g_df = pd.DataFrame(graph_periods).sort_values(by="order").dropna(subset=["win_rate"])
         
         if not g_df.empty:
             cg1, cg2 = st.columns(2)
             
-            # 1. 勝率の推移（折れ線グラフ）
+            # 1. 勝率の推移
             with cg1:
                 fig_win = px.line(g_df, x="label", y="win_rate", markers=True, text=g_df["win_rate"].apply(lambda x: f"{x:.1f}%"),
                                   title="【勝率】の期間推移トレンド", labels={"label": "期間", "win_rate": "勝率 (%)"})
@@ -580,7 +578,7 @@ def main():
                 fig_win.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", yaxis=dict(gridcolor="#1e293b"))
                 st.plotly_chart(fig_win, use_container_width=True)
                 
-            # 2. 平均ダメージ & 平均経験値（2軸/並列バーチャート）
+            # 2. 平均ダメージ & 平均経験値（2軸並列バーチャート）
             with cg2:
                 fig_dmg_xp = go.Figure()
                 fig_dmg_xp.add_trace(go.Bar(x=g_df["label"], y=g_df["avg_damage"], name="平均ダメージ", marker_color="#38bdf8", yaxis="y"))
@@ -591,22 +589,21 @@ def main():
                     xaxis=dict(title="期間"),
                     yaxis=dict(title="平均与ダメージ", gridcolor="#1e293b", color="#38bdf8"),
                     yaxis2=dict(title="平均経験値", side="right", overlaying="y", color="#fbbf24"),
-                    bgroupmode="group", legend=dict(x=0.01, y=0.99)
+                    barmode="group",  # 👈 ここが絶対に 'barmode' になっていることを確認してください！
+                    legend=dict(x=0.01, y=0.99)
                 )
                 st.plotly_chart(fig_dmg_xp, use_container_width=True)
         else:
-            st.info("期間別の遷移グラフを描画するための十分な差分データがありません。")
+            st.info("期間別の遷移グラフを描画するための十分なデータがありません。")
 
-        # 3. 国籍・艦種別の戦闘数シェア（円グラフ） & レーダーチャート
+        # 3. シェア（円グラフ） & レーダーチャート
         st.markdown('<div class="chart-section-title">🚢 国籍・艦種配分シェア & 戦闘能力レーダー</div>', unsafe_allow_html=True)
         
         if not mode_filtered_ship_df.empty:
-            # 最新スナップショットの艦艇データを利用
             l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()]
             
             c1, c2, c3 = st.columns(3)
             
-            # A. 国籍別円グラフ
             with c1:
                 nat_share = l_ships.groupby("_NATION")["BATTLES_COUNT"].sum().reset_index()
                 fig_pie_nat = px.pie(nat_share, values="BATTLES_COUNT", names="_NATION", hole=0.4, title="国籍別 戦闘数シェア",
@@ -614,7 +611,6 @@ def main():
                 fig_pie_nat.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
                 st.plotly_chart(fig_pie_nat, use_container_width=True)
                 
-            # B. 艦種別円グラフ
             with c2:
                 typ_share = l_ships.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index()
                 fig_pie_typ = px.pie(typ_share, values="BATTLES_COUNT", names="_SHIP_TYPE", hole=0.4, title="艦種別 戦闘数シェア",
@@ -622,10 +618,8 @@ def main():
                 fig_pie_typ.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
                 st.plotly_chart(fig_pie_typ, use_container_width=True)
                 
-            # C. レーダーチャート（戦闘能力評価）
             with c3:
                 if global_kpi["battles"] is not None:
-                    # 全期間の数値を基準とした相対最大スケール値の算出(上限設定による綺麗に変形するレーダー)
                     r_metrics = ["勝率", "生存率", "与ダメージ", "K/D比", "撃沈数", "経験値"]
                     r_values = [
                         min(100.0, global_kpi["win_rate"] * 1.5) if global_kpi["win_rate"] else 0,
@@ -635,7 +629,6 @@ def main():
                         min(3.0, global_kpi["avg_frags"] * 2) if global_kpi["avg_frags"] else 0,
                         min(3000.0, global_kpi["avg_xp"]) if global_kpi["avg_xp"] else 0
                     ]
-                    # 表示用に実数値を成形
                     r_text = [
                         f"{global_kpi['win_rate']:.1f}%", f"{global_kpi['survived_rate']:.1f}%",
                         f"{int(global_kpi['avg_damage']):,}", f"{global_kpi['kd']:.2f}",
@@ -656,7 +649,7 @@ def main():
                 else:
                     st.info("レーダーチャートを構成するデータが不足しています。")
         else:
-            st.info("シェア分析を行うための艦艇別詳細スナップショットが存在しません。")
+            st.info("シェア分析を行うための艦艇別詳細データが存在しません。")
 
     # ------------------------------------------
     # Tab 2: 国家別分析
