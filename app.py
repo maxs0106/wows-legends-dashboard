@@ -281,6 +281,18 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
 # 4. メインアプリケーションルーチン
 # ==========================================
 def main():
+    # デバッグ：読み込まれたデータの状態を表示
+    st.write("### [DEBUG] 読み込まれたデータセットの確認")
+    if 'raw_data' in locals() and raw_data:
+        for name, df in raw_data.items():
+            st.write(f"ファイル名: {name}")
+            st.write(f"カラム一覧: {df.columns.tolist()}")
+            st.write(f"行数: {len(df)}")
+            if len(df) > 0:
+                st.write(df.head(1)) # 最初の1行だけ表示
+    else:
+        st.write("データが読み込まれていません。ZIPファイルをアップロードしてください。")
+        
     st.sidebar.header("データインポート")
     uploaded_files = st.sidebar.file_uploader("ZIPデータダンプ投入", type="zip", accept_multiple_files=True)
     
