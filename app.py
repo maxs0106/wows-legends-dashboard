@@ -205,39 +205,42 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
     return pd.to_datetime(date.today())
 
 def extract_zip_data(uploaded_files):
-    raw_data, success_zips, errors = extract_zip_data(uploaded_files)
-    
-    # 【追加】ここが一番重要です！
-    st.write("--- 読み込まれたデータのキー一覧 ---")
-    st.write(list(raw_data.keys()))
-    
-    # もしここに 'clans' や 'account_stats' が入っていなければ、読み込みロジックが合っていません
-    
     data = {}
+    success_zips = []
+    errors = []
+    
+    # 【重要】ここから下の「extract_zip_data(uploaded_files)」を呼び出している行は
+    # 全て削除してください。それが無限ループの原因です。
+    
     for uploaded_file in uploaded_files:
-        bytes_data = uploaded_file.getvalue()
-        with zipfile.ZipFile(io.BytesIO(bytes_data), 'r') as z:
-            for filename in z.namelist():
-                name_lower = filename.lower()
-                
-                # ファイルパスに関わらず、ファイル名単体で判定
-                # これで 'Clans/Clans.csv' も 'Player_Statistics/WOWSL_Ship_Statistics.csv' もヒットします
-                if 'clans.csv' in name_lower:
-                    key = 'clans'
-                elif 'wowsl_account_statistics.csv' in name_lower:
-                    key = 'account_stats'
-                elif 'wowsl_ship_statistics.csv' in name_lower:
-                    key = 'ship_stats'
-                else:
-                    continue
-
-                with z.open(filename) as f:
-                    df = pd.read_csv(f)
-                    if key in data:
-                        data[key] = pd.concat([data[key], df], ignore_index=True)
+        try:
+            bytes_data = uploaded_file.getvalue()
+            with zipfile.ZipFile(io.BytesIO(bytes_data), 'r') as z:
+                for filename in z.namelist():
+                    name_lower = filename.lower()
+                    
+                    # キーの判定（ファイル名に応じて分類）
+                    if 'clans.csv' in name_lower:
+                        key = 'clans'
+                    elif 'wowsl_account_statistics.csv' in name_lower:
+                        key = 'account_stats'
+                    elif 'wowsl_ship_statistics.csv' in name_lower:
+                        key = 'ship_stats'
                     else:
-                        data[key] = df
-    return data, [], []
+                        continue
+
+                    # 読み込み処理
+                    with z.open(filename) as f:
+                        df = pd.read_csv(f)
+                        if key in data:
+                            data[key] = pd.concat([data[key], df], ignore_index=True)
+                        else:
+                            data[key] = df
+            success_zips.append(uploaded_file.name)
+        except Exception as e:
+            errors.append(f"{uploaded_file.name}: {str(e)}")
+            
+    return data, success_zips, errors
     
 def merge_and_optimize(raw_data):
     # 修正前:
