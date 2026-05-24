@@ -15,7 +15,7 @@ import streamlit as st
 # 1. ページ初期設定 & カスタムゲームUI風CSS
 # ==========================================
 st.set_page_config(
-    page_title="WoWs Legends Fleet Intelligence",
+    page_title="WOWSL Legends Dashboard",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -52,13 +52,14 @@ CSS_STYLE = """
         text-shadow: 0 0 15px rgba(0, 242, 254, 0.5);
     }
     .player-clan-info {
-        font-size: 1.2rem;
-        color: #e2e8f0;
+        font-size: 1.4rem;
+        color: #ffffff;
         font-weight: 700;
     }
     .clan-tag-highlight {
         color: #00f2fe;
-        margin-right: 6px;
+        font-weight: 800;
+        margin-right: 4px;
     }
     .player-id-sub {
         font-size: 0.9rem;
@@ -276,17 +277,16 @@ def main():
         data["ship_stats"] = ship_df
 
     # ------------------------------------------
-    # ⚓ プレイヤー名・クラン名の高精度抽出ロジック（バグ完全修正）
+    # ⚓ プレイヤー名・クラン名の抽出ロジック（バグ完全修正＆表示形式アップデート）
     # ------------------------------------------
-    clan_tag, clan_name, p_name, p_id = "---", "クラン未所属", "プレイヤーデータ", "xxxxxxxx"
+    clan_tag, p_name, p_id = None, "プレイヤーデータ", "xxxxxxxx"
     
-    # 1. Account_Info からの抽出
+    # 1. Account_Info / Account_Stats からの抽出
     if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
         if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
         if 'ACCOUNT_ID' in l_info.index and pd.notna(l_info['ACCOUNT_ID']): p_id = str(l_info['ACCOUNT_ID'])
         
-    # 2. Account_Stats からの抽出（超堅牢フォールバック）
     if (p_name == "プレイヤーデータ" or p_id == "xxxxxxxx") and not data["account_stats"].empty:
         l_stats = data["account_stats"].iloc[-1]
         for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
@@ -297,17 +297,23 @@ def main():
             if id_col in l_stats.index and pd.notna(l_stats[id_col]):
                 p_id = str(l_stats[id_col])
                 break
-        
+                
+    # 2. クランデータの抽出（複数のカラムパターンに対応）
     if not data["clans"].empty:
         l_clan = data["clans"].iloc[-1]
-        if 'TAG' in l_clan.index and pd.notna(l_clan['TAG']): clan_tag = f"[{l_clan['TAG']}]"
-        if 'NAME' in l_clan.index and pd.notna(l_clan['NAME']): clan_name = str(l_clan['NAME'])
+        for tag_col in ['TAG', 'CLAN_TAG', 'SHORT_NAME', 'CLAN_SHORT_NAME']:
+            if tag_col in l_clan.index and pd.notna(l_clan[tag_col]) and str(l_clan[tag_col]).strip() != "":
+                clan_tag = str(l_clan[tag_col]).strip()
+                break
+
+    # 表示名構築: クランがあれば 【クラン名】プレイヤー名 の形式へ
+    player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
     header_html = f"""
     <div class="game-header-container">
-        <div class="game-title">Fleet Intelligence Dashboard</div>
+        <div class="game-title">WOWSL Legends Dashboard</div>
         <div class="player-clan-info">
-            <span class="clan-tag-highlight">{clan_tag}</span> {p_name} &nbsp;|&nbsp; <span style="color: #94a3b8; font-size:0.95rem;">所属艦隊: {clan_name}</span>
+            {player_display_string}
         </div>
         <div class="player-id-sub">ACCOUNT CODE: {p_id}</div>
     </div>
@@ -319,7 +325,7 @@ def main():
     ])
 
     # ------------------------------------------
-    # Tab 1: 総合戦績（固定形式ボタン＆画像風新設グラフ群）
+    # Tab 1: 総合戦績
     # ------------------------------------------
     with t_summary:
         bt_df = data["battle_types"]
@@ -377,6 +383,7 @@ def main():
             global_kpi = calc_metrics_from_row(pd.DataFrame())
         matrix_columns["全期間"] = global_kpi
 
+        # 【バグ修正】期間データが間引かれず綺麗に連続するように構築
         period_keys = []
         if len(unique_dates) > 1:
             for i in range(len(unique_dates) - 1, 0, -1):
@@ -455,7 +462,7 @@ def main():
             st.info("トレンドグラフ用データが見つかりません。")
 
         # ====================================================================
-        # 🚢 通常戦(TYPE 1) 国家・艦種戦闘数分布（スタイリッシュな横棒型）
+        # 🚢 通常戦(TYPE 1) 国家・艦種戦闘数分布（画像スタイル再現）
         # ====================================================================
         st.markdown('<div class="chart-section-title">📊 通常戦（総合データ）国籍・艦種戦闘数分布</div>', unsafe_allow_html=True)
         
@@ -513,13 +520,9 @@ def main():
             s_nat = c_f1.selectbox("国家で絞り込む", ["すべて"] + list(l_ships['_NATION'].unique()))
             s_typ = c_f2.selectbox("艦種で絞り込む", ["すべて"] + list(l_ships['_SHIP_TYPE'].unique()))
             
-            # 💡 三項演算子を排除し、Pandasが正しく解釈できる安全なマスク処理に変更
             mask = pd.Series(True, index=l_ships.index)
-            if s_nat != "すべて":
-                mask = mask & (l_ships['_NATION'] == s_nat)
-            if s_typ != "すべて":
-                mask = mask & (l_ships['_SHIP_TYPE'] == s_typ)
-                
+            if s_nat != "すべて": mask = mask & (l_ships['_NATION'] == s_nat)
+            if s_typ != "すべて": mask = mask & (l_ships['_SHIP_TYPE'] == s_typ)
             query_df = l_ships[mask]
             
             records_list = [{"艦艇名": f'<span class="game-ship-name">{r["_CLEAN_NAME"]}</span>', "国家": r['_NATION'], "艦種": r['_SHIP_TYPE'], "戦闘数": r['BATTLES_COUNT'], "勝率": f"{(r['WINS']/r['BATTLES_COUNT']*100):.2f}%", "平均与ダメ": int(r['DAMAGE_DEALT']/r['BATTLES_COUNT'])} for _, r in query_df.iterrows() if r['BATTLES_COUNT'] > 0]
@@ -527,8 +530,7 @@ def main():
                 st.write(pd.DataFrame(records_list).sort_values(by="戦闘数", ascending=False).to_html(escape=False, index=False), unsafe_allow_html=True)
             else:
                 st.info("該当する艦艇データがありません。")
-        else: 
-            st.info("データがありません。")
+        else: st.info("データがありません。")
 
     with t_best:
         acc_df = data["account_stats"]
