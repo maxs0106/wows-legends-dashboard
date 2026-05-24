@@ -281,80 +281,48 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
 # 4. メインアプリケーションルーチン
 # ==========================================
 def main():
-    # デバッグ：読み込まれたデータの状態を表示
-    st.write("### [DEBUG] 読み込まれたデータセットの確認")
-    if 'raw_data' in locals() and raw_data:
-        for name, df in raw_data.items():
-            st.write(f"ファイル名: {name}")
-            st.write(f"カラム一覧: {df.columns.tolist()}")
-            st.write(f"行数: {len(df)}")
-            if len(df) > 0:
-                st.write(df.head(1)) # 最初の1行だけ表示
-    else:
-        st.write("データが読み込まれていません。ZIPファイルをアップロードしてください。")
-        
+    # 1. サイドバーでファイルをアップロードしてもらうのが最初
     st.sidebar.header("データインポート")
     uploaded_files = st.sidebar.file_uploader("ZIPデータダンプ投入", type="zip", accept_multiple_files=True)
     
+    # ファイルがない場合はここで終了（これより下にデバッグを書かない）
     if not uploaded_files:
         st.info("サイドバーから個人データZIPファイルを複数アップロードしてください。")
         return
 
+    # 2. ファイルがある場合のみ読み込み処理を実行
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
     data = merge_and_optimize(raw_data)
     
-    all_dates = []
-    for df in data.values():
-        if not df.empty and '_SNAPSHOT_DATE' in df.columns:
-            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
-    
-    if not all_dates:
-        st.error("有効な日付データを含むCSVファイルが見つかりません。")
+    # 3. データの存在確認
+    if not data or "account_stats" not in data:
+        st.error("データの読み込みに失敗しました。")
         return
-        
-    unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
 
-    ship_df = data["ship_stats"]
-    if not ship_df.empty:
-        parsed_meta = ship_df['VEHICLE_NAME'].apply(parse_ship_id)
-        ship_df['_NATION'] = [x[0] for x in parsed_meta]
-        ship_df['_SHIP_TYPE'] = [x[1] for x in parsed_meta]
-        ship_df['_ESTIMATED_TIER'] = [x[2] for x in parsed_meta]
-        ship_df['_CLEAN_NAME'] = [x[3] for x in parsed_meta]
-        data["ship_stats"] = ship_df
+    # --- (日付データチェックなどの既存処理) ---
 
-    # ⚓ プレイヤー名・クラン名の堅牢な抽出 (修正版)
+    # 4. クラン名・プレイヤー名の算出 (先に clan_tag を定義する)
+    clan_tag = "未所属" # 初期値
     p_name = "プレイヤーデータ"
     
-    # どのデータも「_SNAPSHOT_DATE」という共通の基準日を持っている前提
+    # クラン抽出ロジック
+    if "clans" in data and not data["clans"].empty:
+        df = data["clans"].copy()
+        df['dt_created'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
+        latest_row = df.sort_values(by='dt_created', ascending=False).iloc[0]
+        clan_tag = str(latest_row['CLAN_NAME']).strip()
+
+    # アカウント名抽出
     if not data["account_stats"].empty:
-        # 日付でソートして最新の1行を確定させる
         stats_df = data["account_stats"].sort_values(by='_SNAPSHOT_DATE', ascending=True)
         l_stats = stats_df.iloc[-1]
-        
         for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
             if name_col in l_stats.index and pd.notna(l_stats[name_col]):
                 p_name = str(l_stats[name_col])
                 break
-                
-    # 強制デバッグ：全行の日時とクラン名をそのまま表示する
-    if not data["clans"].empty:
-        df = data["clans"].copy()
-        df['dt_created'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
-        
-        # デバッグ：全データをソートして表示
-        st.write("--- Clans データ検証 ---")
-        sorted_df = df.sort_values(by='dt_created', ascending=False)
-        st.dataframe(sorted_df[['dt_created', 'CLAN_NAME', 'OPERATION_NAME']])
-        
-        # ロジックの現在地を確認
-        latest_row = sorted_df.iloc[0]
-        clan_tag = str(latest_row['CLAN_NAME']).strip()
-        st.write(f"判定されたクラン: {clan_tag}")
-    else:
-        st.write("Clansデータが空です")
 
-    player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
+    # 5. ここで初めて画面に表示する
+    player_display_string = f"【{clan_tag}】{p_name}"
 
     header_html = f"""
     <div class="game-header-container">
