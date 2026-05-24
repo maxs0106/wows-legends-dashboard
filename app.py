@@ -251,8 +251,8 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
     for key, dfs in raw_data.items():
         if dfs is None or dfs.empty:
             return pd.DataFrame()
-                merged[key] = pd.DataFrame()
-                continue
+            merged[key] = pd.DataFrame()
+            continue
         df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
         df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
         id_cols = ['_SNAPSHOT_DATE']
