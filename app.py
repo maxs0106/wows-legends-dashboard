@@ -204,23 +204,33 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
 
     return pd.to_datetime(date.today())
 
-def extract_zip_data(zip_file):
+def extract_zip_data(uploaded_files):
     data = {}
-    with zipfile.ZipFile(zip_file, 'r') as z:
-        for filename in z.namelist():
-            if filename.endswith('.csv'):
-                # ファイル名をキーにする（例: Clans.csv -> clans）
-                key = filename.replace('.csv', '').lower()
-                
-                # ここが重要：すべての内容を確実に読み込む
-                with z.open(filename) as f:
-                    df = pd.read_csv(f)
-                    # 複数回に分けてファイルがある場合は append する
-                    if key in data:
-                        data[key] = pd.concat([data[key], df], ignore_index=True)
-                    else:
-                        data[key] = df
-    return data
+    success_zips = []
+    errors = []
+    
+    for uploaded_file in uploaded_files:
+        try:
+            # 💡 【重要】StreamlitのファイルをBytesIOに変換する
+            bytes_data = uploaded_file.getvalue()
+            with zipfile.ZipFile(io.BytesIO(bytes_data), 'r') as z:
+                for filename in z.namelist():
+                    if filename.endswith('.csv'):
+                        # ファイル読み込み
+                        with z.open(filename) as f:
+                            df = pd.read_csv(f)
+                            key = filename.replace('.csv', '').lower()
+                            
+                            # データの結合処理
+                            if key in data:
+                                data[key] = pd.concat([data[key], df], ignore_index=True)
+                            else:
+                                data[key] = df
+            success_zips.append(uploaded_file.name)
+        except Exception as e:
+            errors.append(f"{uploaded_file.name}: {str(e)}")
+            
+    return data, success_zips, errors
 
 def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
     merged: Dict[str, pd.DataFrame] = {}
