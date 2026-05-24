@@ -334,22 +334,22 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # 強制抽出ロジック：日付変換してソートし、一番上の行を拾う
-    clan_tag = "未所属"
+    # 強制デバッグ：全行の日時とクラン名をそのまま表示する
     if not data["clans"].empty:
         df = data["clans"].copy()
+        df['dt_created'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
         
-        # 1. 日付文字列をパース可能な形にしてから datetime 型へ
-        df['dt'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
+        # デバッグ：全データをソートして表示
+        st.write("--- Clans データ検証 ---")
+        sorted_df = df.sort_values(by='dt_created', ascending=False)
+        st.dataframe(sorted_df[['dt_created', 'CLAN_NAME', 'OPERATION_NAME']])
         
-        # 2. 日付が正しく変換できたものだけに絞り、降順（新しい順）に並べる
-        latest_df = df.dropna(subset=['dt']).sort_values(by='dt', ascending=False)
-        
-        # 3. 最新の1行（一番上）を取得
-        if not latest_df.empty:
-            clan_tag = str(latest_df.iloc[0]['CLAN_NAME']).strip()
-            
-    # これで clan_tag に MaDMax が入ります
+        # ロジックの現在地を確認
+        latest_row = sorted_df.iloc[0]
+        clan_tag = str(latest_row['CLAN_NAME']).strip()
+        st.write(f"判定されたクラン: {clan_tag}")
+    else:
+        st.write("Clansデータが空です")
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
