@@ -154,35 +154,38 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     return nation, ship_class, tier, display_name
 
 def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
-    """💡 UPDATED_AT, LAST_BATTLE_TIME, LOG_OUT_TIME から日付をスキャンして取得する堅牢な関数"""
-    # 探索対象のタイムスタンプカラム候補
-    target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
-    
-    for col in target_columns:
-        if col in df.columns and not df.empty:
-            # 欠損値でなく、かつ中身が存在する場合のみ処理
-            raw_val = df[col].dropna().iloc[0]
-            raw_str = str(raw_val).strip()
-            
-            try:
-                # UNIXタイムスタンプ(数値型・文字列型)のパース試行
-                float_val = float(raw_str)
-                if float_val > 1000000000: # 有効なエポック秒判定
-                    return pd.to_datetime(datetime.fromtimestamp(float_val).date())
-            except ValueError:
-                pass
-            
-            try:
-                # すでに YYYY-MM-DD 形式になっている場合のパース試行
-                return pd.to_datetime(datetime.strptime(raw_str[:10], '%Y-%m-%d').date())
-            except ValueError:
-                pass
-
-    # CSV内部から日付が見つからない場合は、ファイル名 (例: 2026-05-20.zip) から自動抽出
+    """💡 ファイル名に日付（YYYY-MM-DD）があれば最優先、なければデータ全体の「最新タイムスタンプ」をパースする最強関数"""
+    # 🌟 安全弁：まずZIPファイル名から日付の抽出を最優先で試みる
     matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
     if matches:
         return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
         
+    matches_no_dash = re.findall(r'\d{8}', file_name)  # 20260520 のような形式
+    if matches_no_dash:
+        try:
+            return pd.to_datetime(datetime.strptime(matches_no_dash[0], '%Y%m%d').date())
+        except ValueError:
+            pass
+
+    # 🌟 CSV内のタイムスタンプカラムをスキャン（1行目ではなく、列全体の「最大値」を取る）
+    target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
+    
+    for col in target_columns:
+        if col in df.columns and not df.empty:
+            # 列のすべての値を数値に変換し、最も新しい（大きい）タイムスタンプを取得
+            valid_series = pd.to_numeric(df[col], errors='coerce').dropna()
+            if not valid_series.empty:
+                max_timestamp = valid_series.max()
+                if max_timestamp > 1000000000:  # 有効なエポック秒
+                    return pd.to_datetime(datetime.fromtimestamp(max_timestamp).date())
+            
+            # 文字列（YYYY-MM-DD...）の列である場合のフォールバック（文字列としての最大値）
+            string_series = df[col].astype(str).str.strip().dropna()
+            string_series = string_series[string_series.str.match(r'^\d{4}-\d{2}-\d{2}')]
+            if not string_series.empty:
+                max_str = string_series.max()
+                return pd.to_datetime(datetime.strptime(max_str[:10], '%Y-%m-%d').date())
+
     return pd.to_datetime(date.today())
 
 def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataFrame]], List[str], List[str]]:
@@ -194,6 +197,7 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                 temp_dfs = {}
                 detected_date = None
                 
+                # ZIP内のCSVをすべて読み込んで一時保管
                 for internal_path in z.namelist():
                     base_name = os.path.basename(internal_path)
                     if base_name in CSV_MAPPING:
@@ -205,14 +209,17 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                         if not df.empty:
                             df.columns = [c.strip().upper() for c in df.columns]
                             temp_dfs[CSV_MAPPING[base_name]] = df
+                
+                # 確定させた一時データ群から、ファイル全体の「最新日付」を一発決定
+                for key in ["battle_types", "account_stats", "ship_stats"]:
+                    if key in temp_dfs and detected_date is None:
+                        date_candidate = get_snapshot_date(temp_dfs[key], up_file.name)
+                        if date_candidate != pd.to_datetime(date.today()):
+                            detected_date = date_candidate
+                            break
                             
-                            # カラム優先順位に基づいて日付情報を随時上書き・確定
-                            if detected_date is None or detected_date == pd.to_datetime(date.today()):
-                                date_candidate = get_snapshot_date(df, up_file.name)
-                                if date_candidate != pd.to_datetime(date.today()):
-                                    detected_date = date_candidate
-                                
                 if detected_date is None:
+                    # すべて失敗した場合はファイル名か本日の日付
                     detected_date = get_snapshot_date(pd.DataFrame(), up_file.name)
                     
                 for key, df in temp_dfs.items():
