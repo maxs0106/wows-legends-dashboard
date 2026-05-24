@@ -315,12 +315,19 @@ def main():
         st.info("サイドバーから個人データZIPファイルを複数アップロードしてください。")
         return
 
+    # 1. raw_data(辞書) を取得し、それを最適化して loaded_data(辞書) に変換
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
-    loaded_data = merge_and_optimize(raw_data)
+    data = merge_and_optimize(raw_data) # ★ここを data と定義し直すか、一貫して同じ名前を使う
     
+    # 以下、すべて data という変数名で統一します
+    if not isinstance(data, dict):
+        st.error("データの形式が不正です。")
+        return
+    
+    # --- 日付取得 ---
     all_dates = []
-    for df in loaded_data.values():
-        if not df.empty and '_SNAPSHOT_DATE' in df.columns:
+    for df in data.values():
+        if isinstance(df, pd.DataFrame) and not df.empty and '_SNAPSHOT_DATE' in df.columns:
             all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
     
     if not all_dates:
@@ -329,8 +336,9 @@ def main():
         
     unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
 
-    ship_df = data["ship_stats"]
-    if not ship_df.empty:
+    # --- 艦艇メタデータ解析 ---
+    if "ship_stats" in data and not data["ship_stats"].empty:
+        ship_df = data["ship_stats"].copy()
         parsed_meta = ship_df['VEHICLE_NAME'].apply(parse_ship_id)
         ship_df['_NATION'] = [x[0] for x in parsed_meta]
         ship_df['_SHIP_TYPE'] = [x[1] for x in parsed_meta]
@@ -338,38 +346,32 @@ def main():
         ship_df['_CLEAN_NAME'] = [x[3] for x in parsed_meta]
         data["ship_stats"] = ship_df
 
-    # ⚓ プレイヤー名・クラン名の堅牢な抽出
+    # --- プレイヤー・クラン名抽出 ---
     clan_tag, p_name = None, "プレイヤーデータ"
     
-    if not data["account_info"].empty:
+    # account_info キーがあるか確認
+    if "account_info" in data and not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
-        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
+        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): 
+            p_name = str(l_info['NICKNAME'])
         
-    if p_name == "プレイヤーデータ" and not data["account_stats"].empty:
+    if p_name == "プレイヤーデータ" and "account_stats" in data and not data["account_stats"].empty:
         l_stats = data["account_stats"].iloc[-1]
         for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
             if name_col in l_stats.index and pd.notna(l_stats[name_col]):
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得の修正：CLAN_NAME列を直接指定し、CREATED_ATで最新行を特定
-    clan_tag = None
-    if not data["clans"].empty:
+    if "clans" in data and not data["clans"].empty:
         clan_df = data["clans"].copy()
-        
-        # 1. 'CREATED_AT' 列があればそれを数値化してソートの基準にする
-        #    なければスナップショット日付（_SNAPSHOT_DATE）を基準にする
         sort_col = 'CREATED_AT' if 'CREATED_AT' in clan_df.columns else '_SNAPSHOT_DATE'
         clan_df[sort_col] = pd.to_numeric(clan_df[sort_col], errors='coerce')
-        
-        # 2. 最新の1行を取得
         latest_row = clan_df.sort_values(by=sort_col, ascending=False).iloc[0]
-        
-        # 3. 'CLAN_NAME' 列から直接取得
         if 'CLAN_NAME' in latest_row.index and pd.notna(latest_row['CLAN_NAME']):
             clan_tag = str(latest_row['CLAN_NAME']).strip()
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
+    # ...以下、HTML表示へ続く
 
     header_html = f"""
     <div class="game-header-container">
