@@ -606,15 +606,17 @@ def main():
             
             with c1:
                 nat_share = l_ships.groupby("_NATION")["BATTLES_COUNT"].sum().reset_index()
+                # 💡 px.colors.radial を px.colors.sequential に修正
                 fig_pie_nat = px.pie(nat_share, values="BATTLES_COUNT", names="_NATION", hole=0.4, title="国籍別 戦闘数シェア",
-                                     color_discrete_sequence=px.colors.radial.Sunset_r)
+                                     color_discrete_sequence=px.colors.sequential.Sunset_r)
                 fig_pie_nat.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
                 st.plotly_chart(fig_pie_nat, use_container_width=True)
                 
             with c2:
                 typ_share = l_ships.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index()
+                # 💡 px.colors.radial を px.colors.sequential に修正
                 fig_pie_typ = px.pie(typ_share, values="BATTLES_COUNT", names="_SHIP_TYPE", hole=0.4, title="艦種別 戦闘数シェア",
-                                     color_discrete_sequence=px.colors.radial.Neon)
+                                     color_discrete_sequence=px.colors.sequential.Neon)
                 fig_pie_typ.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
                 st.plotly_chart(fig_pie_typ, use_container_width=True)
                 
