@@ -154,25 +154,31 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     return nation, ship_class, tier, display_name
 
 def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
-    """💡 どんな形式のタイムスタンプやファイル名からでも確実に正しい日付オブジェクトを返す超堅牢関数"""
-    t_col = next((c for c in ['DOSSIER_UPDATED_AT', 'UPDATED_AT'] if c in df.columns), None)
-    if t_col and not df.empty:
-        raw_val = str(df[t_col].iloc[0]).strip()
-        try:
-            # UNIXタイムスタンプ（秒）のパース試行
-            float_val = float(raw_val)
-            if float_val > 1000000000: # 有効なエポック秒判定
-                return pd.to_datetime(datetime.fromtimestamp(float_val).date())
-        except ValueError:
-            pass
-        
-        try:
-            # YYYY-MM-DD 文字列形式のパース試行
-            return pd.to_datetime(datetime.strptime(raw_val[:10], '%Y-%m-%d').date())
-        except ValueError:
-            pass
+    """💡 UPDATED_AT, LAST_BATTLE_TIME, LOG_OUT_TIME から日付をスキャンして取得する堅牢な関数"""
+    # 探索対象のタイムスタンプカラム候補
+    target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
+    
+    for col in target_columns:
+        if col in df.columns and not df.empty:
+            # 欠損値でなく、かつ中身が存在する場合のみ処理
+            raw_val = df[col].dropna().iloc[0]
+            raw_str = str(raw_val).strip()
+            
+            try:
+                # UNIXタイムスタンプ(数値型・文字列型)のパース試行
+                float_val = float(raw_str)
+                if float_val > 1000000000: # 有効なエポック秒判定
+                    return pd.to_datetime(datetime.fromtimestamp(float_val).date())
+            except ValueError:
+                pass
+            
+            try:
+                # すでに YYYY-MM-DD 形式になっている場合のパース試行
+                return pd.to_datetime(datetime.strptime(raw_str[:10], '%Y-%m-%d').date())
+            except ValueError:
+                pass
 
-    # CSVから取得できない場合はファイル名から YYYY-MM-DD を抽出
+    # CSV内部から日付が見つからない場合は、ファイル名 (例: 2026-05-20.zip) から自動抽出
     matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
     if matches:
         return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
@@ -188,7 +194,6 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                 temp_dfs = {}
                 detected_date = None
                 
-                # 最初に対象となる有効な日付をZIP内部から探索
                 for internal_path in z.namelist():
                     base_name = os.path.basename(internal_path)
                     if base_name in CSV_MAPPING:
@@ -200,8 +205,12 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                         if not df.empty:
                             df.columns = [c.strip().upper() for c in df.columns]
                             temp_dfs[CSV_MAPPING[base_name]] = df
-                            if detected_date is None:
-                                detected_date = get_snapshot_date(df, up_file.name)
+                            
+                            # カラム優先順位に基づいて日付情報を随時上書き・確定
+                            if detected_date is None or detected_date == pd.to_datetime(date.today()):
+                                date_candidate = get_snapshot_date(df, up_file.name)
+                                if date_candidate != pd.to_datetime(date.today()):
+                                    detected_date = date_candidate
                                 
                 if detected_date is None:
                     detected_date = get_snapshot_date(pd.DataFrame(), up_file.name)
@@ -221,7 +230,6 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
             merged[key] = pd.DataFrame()
             continue
         df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
-        # 型の不一致を防ぐため念押しでDatetime型キャスト
         df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
         id_cols = ['_SNAPSHOT_DATE']
         if key == 'battle_types': id_cols.append('TYPE')
@@ -293,9 +301,7 @@ def main():
         ship_df['_CLEAN_NAME'] = [x[3] for x in parsed_meta]
         data["ship_stats"] = ship_df
 
-    # ------------------------------------------
     # ⚓ プレイヤー名・クラン名の抽出ロジック
-    # ------------------------------------------
     clan_tag, p_name = None, "プレイヤーデータ"
     
     if not data["account_info"].empty:
@@ -397,7 +403,6 @@ def main():
                 period_label = f"{d_start.strftime('%Y/%m/%d')}<br>～ {d_end.strftime('%Y/%m/%d')}"
                 period_keys.append(period_label)
                 
-                # pd.Timestampで厳密にデータマッチング
                 df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_end] if not mode_bt_df.empty else pd.DataFrame()
                 df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_start] if not mode_bt_df.empty else pd.DataFrame()
                 
