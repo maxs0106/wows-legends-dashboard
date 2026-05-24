@@ -334,32 +334,22 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得の修正：CREATED_ATを基準に最新の行を選択する
+    # クラン名取得の修正：CLAN_NAME列を直接指定し、CREATED_ATで最新行を特定
     clan_tag = None
     if not data["clans"].empty:
         clan_df = data["clans"].copy()
         
-        # 1. 日付列の候補を探す (CREATED_AT 等)
-        date_col = next((c for c in clan_df.columns if 'CREATED' in c or 'TIME' in c or 'DATE' in c), None)
+        # 1. 'CREATED_AT' 列があればそれを数値化してソートの基準にする
+        #    なければスナップショット日付（_SNAPSHOT_DATE）を基準にする
+        sort_col = 'CREATED_AT' if 'CREATED_AT' in clan_df.columns else '_SNAPSHOT_DATE'
+        clan_df[sort_col] = pd.to_numeric(clan_df[sort_col], errors='coerce')
         
-        # 2. 日付があるならそれで、なければスナップショット日付でソートして最新行を取得
-        if date_col:
-            clan_df[date_col] = pd.to_numeric(clan_df[date_col], errors='coerce')
-            latest_row = clan_df.sort_values(by=date_col, ascending=False).iloc[0]
-        else:
-            latest_row = clan_df.sort_values(by='_SNAPSHOT_DATE', ascending=False).iloc[0]
-            
-        # 3. CLAN_NAME カラム（またはそれに近いもの）からタグを取得
-        name_col = next((c for c in latest_row.index if 'CLAN' in c and 'NAME' in c), None)
-        if name_col and pd.notna(latest_row[name_col]):
-            clan_tag = str(latest_row[name_col]).strip()
-        else:
-            # 万が一該当カラムがない場合は、先ほどのロジックで全列から探索
-            for col in latest_row.index:
-                val = str(latest_row[col]).strip()
-                if 2 <= len(val) <= 5 and val.isalnum():
-                    clan_tag = val
-                    break
+        # 2. 最新の1行を取得
+        latest_row = clan_df.sort_values(by=sort_col, ascending=False).iloc[0]
+        
+        # 3. 'CLAN_NAME' 列から直接取得
+        if 'CLAN_NAME' in latest_row.index and pd.notna(latest_row['CLAN_NAME']):
+            clan_tag = str(latest_row['CLAN_NAME']).strip()
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
