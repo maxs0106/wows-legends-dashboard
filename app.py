@@ -316,10 +316,10 @@ def main():
         return
 
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
-    data = merge_and_optimize(raw_data)
+    loaded_data = merge_and_optimize(raw_data)
     
     all_dates = []
-    for df in data.values():
+    for df in loaded_data.values():
         if not df.empty and '_SNAPSHOT_DATE' in df.columns:
             all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
     
