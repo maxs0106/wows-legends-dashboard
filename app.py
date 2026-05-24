@@ -374,6 +374,17 @@ def main():
     t_summary, t_nation, t_type, t_ship, t_best, t_clan = st.tabs([
         "総合戦績 (マトリクス)", "国家別分析", "艦種別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
     ])
+
+    # データを可視化して、何が起きているかを目視確認する
+    if not data["clans"].empty:
+        st.write("### [DEBUG] Clans.csv 全データ確認")
+        df_debug = data["clans"].copy()
+        # 日時変換を試みて可視化
+        if 'CREATED_AT' in df_debug.columns:
+            df_debug['dt_created'] = pd.to_datetime(df_debug['CREATED_AT'], errors='coerce')
+        st.dataframe(df_debug)
+    else:
+        st.write("Clansデータが空です")
         
     # ------------------------------------------
     # Tab 1: 総合戦績
