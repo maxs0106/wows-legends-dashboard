@@ -205,6 +205,9 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
     return pd.to_datetime(date.today())
 
 def extract_zip_data(uploaded_files):
+    for uploaded_file in uploaded_files:
+        with zipfile.ZipFile(uploaded_file, 'r') as z:
+            st.write(f"ZIP内のファイルリスト: {z.namelist()}")
     data = {}
     success_zips = []
     errors = []
