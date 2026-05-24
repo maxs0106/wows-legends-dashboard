@@ -336,8 +336,8 @@ def main():
                 
     # クラン名取得の修正：CLAN_NAME列を直接指定し、CREATED_ATで最新行を特定
     clan_tag = None
-    if not data["Clans"].empty:
-        clan_df = data["Clans"].copy()
+    if not data["clans"].empty:
+        clan_df = data["clans"].copy()
         
         # 1. 'CREATED_AT' 列があればそれを数値化してソートの基準にする
         #    なければスナップショット日付（_SNAPSHOT_DATE）を基準にする
