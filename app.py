@@ -334,16 +334,18 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # 💡 クラン名バグの修正: 過去履歴に惑わされず、一番最新日付データからタグを厳選
+    # 💡 クラン名バグの修正: 最新日付のデータのみに絞り込んで抽出
+    clan_tag = None
     if not data["clans"].empty:
-        latest_clan_df = data["clans"].sort_values(by='_SNAPSHOT_DATE').iloc[-1:]
-        l_clan = latest_clan_df.iloc[0]
-        for col in l_clan.index:
-            if col != '_SNAPSHOT_DATE' and pd.notna(l_clan[col]) and str(l_clan[col]).strip() != "":
-                val_str = str(l_clan[col]).strip()
-                if 2 <= len(val_str) <= 5 and val_str.isalnum():
-                    clan_tag = val_str
+        latest_date = data["clans"]["_SNAPSHOT_DATE"].max()
+        latest_clan_df = data["clans"][data["clans"]["_SNAPSHOT_DATE"] == latest_date]
+        for _, row in latest_clan_df.iterrows():
+            for col in row.index:
+                val = str(row[col]).strip()
+                if 2 <= len(val) <= 5 and val.isalnum():
+                    clan_tag = val
                     break
+            if clan_tag: break
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
@@ -572,36 +574,32 @@ def main():
     with t_best:
         acc_df = data["account_stats"]
         if not acc_df.empty:
-            # 💡 キー名のズレに対応する柔軟なマッピング
-            search_rules = [
-                ("最高与ダメージ", ["DAMAGE_DEALT", "DAMAGE", "MAX_DAMAGE"]),
-                ("最高経験値", ["MAX_EXP", "EXP", "MAXIMUM_EXP"]),
-                ("最高撃沈数", ["MAX_FRAGS", "FRAGS", "KILLS"]),
-                ("最大メイン砲命中", ["MAX_MAIN_HIT", "MAIN_HIT", "MAIN_BATTERY"])
+            # 検索対象のキーワード
+            best_rules = [
+                ("最高与ダメージ", "DAMAGE"), 
+                ("最高経験値", "EXP"), 
+                ("最高撃沈数", "FRAGS"), 
+                ("最大メイン砲命中", "HIT")
             ]
-            
             b_records = []
-            for label, potential_cols in search_rules:
-                matched_col = None
-                # 完全一致または部分一致するカラムを探す
-                for c in acc_df.columns:
-                    if any(p in c for p in potential_cols):
-                        matched_col = c
-                        break
-                
-                if matched_col:
-                    # 強制的に数値化して最大値をスキャン
-                    series_num = pd.to_numeric(acc_df[matched_col], errors='coerce').dropna()
-                    if not series_num.empty:
-                        b_records.append({"項目": label, "記録": f"{int(series_num.max()):,}"})
-                        
-            if b_records: 
-                st.dataframe(pd.DataFrame(b_records), width='stretch', hide_index=True)
+            for label, kw in best_rules:
+                # 該当キーワードを含む列を探す
+                target_cols = [c for c in acc_df.columns if kw.upper() in c.upper()]
+                if target_cols:
+                    # 全候補列を数値化し、全データ期間中の最大値を取得
+                    max_val = 0
+                    for c in target_cols:
+                        series = pd.to_numeric(acc_df[c], errors='coerce')
+                        if not series.empty:
+                            max_val = max(max_val, series.max())
+                    b_records.append({"項目": label, "記録": f"{int(max_val):,}"})
+            
+            if b_records:
+                st.dataframe(pd.DataFrame(b_records), width=500, hide_index=True)
             else:
-                st.warning("項目データの抽出に失敗しました。CSVのカラム名が変更されている可能性があります。")
+                st.info("自己ベスト項目が見つかりませんでした。")
         else: 
-            st.info("自己ベストデータ（account_stats）が確認できません。")
-
+            st.info("自己ベストデータが確認できません。")
     # ------------------------------------------
     # Tab 6: クランデータ
     # ------------------------------------------
