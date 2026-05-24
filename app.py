@@ -334,31 +334,23 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得の再修正：最新かつ有効な操作履歴から取得
+    # クラン名取得：汎用的な最新データ抽出ロジック
     clan_tag = "未所属"
     if not data["clans"].empty:
         clan_df = data["clans"].copy()
         
-        # 1. タイムスタンプが有効でない場合でも、_SNAPSHOT_DATE で最新を探す
+        # 1. すべての行から「最も新しいスナップショット日付」を特定
         latest_date = clan_df['_SNAPSHOT_DATE'].max()
         
-        # 2. 最新日付のデータの中で、'join_clan' や 'change_role' など
-        #    クランに属していることを示す操作が行われている行を探す
-        valid_rows = clan_df[
-            (clan_df['_SNAPSHOT_DATE'] == latest_date) & 
-            (clan_df['OPERATION_NAME'].isin(['join_clan', 'change_role', 'clan_member_status']))
-        ]
+        # 2. 最新日付のデータのみに絞り込み
+        latest_rows = clan_df[clan_df['_SNAPSHOT_DATE'] == latest_date]
         
-        # 3. それでも取れない場合は、最新日付の全行からCLAN_NAMEが空でないものを探す
-        if valid_rows.empty:
-            valid_rows = clan_df[
-                (clan_df['_SNAPSHOT_DATE'] == latest_date) & 
-                (pd.notna(clan_df['CLAN_NAME'])) & 
-                (clan_df['CLAN_NAME'] != "dOwOb") # 誤った情報を排除
-            ]
-            
+        # 3. CLAN_NAME が存在し、かつ空っぽではない（NaNではない）ものを探す
+        #    もし複数行あっても、最後の行（最も新しい操作）を採用
+        valid_rows = latest_rows[pd.notna(latest_rows['CLAN_NAME']) & (latest_rows['CLAN_NAME'] != "")]
+        
         if not valid_rows.empty:
-            # 最新の行を採用
+            # 汎用的に一番下の行（＝最新のデータ）を取得
             clan_tag = str(valid_rows.iloc[-1]['CLAN_NAME']).strip()
 
 
