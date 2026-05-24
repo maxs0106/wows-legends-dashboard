@@ -321,18 +321,18 @@ def main():
         data["ship_stats"] = ship_df
 
     # ⚓ プレイヤー名・クラン名の堅牢な抽出 (修正版)
-p_name = "プレイヤーデータ"
-
-# どのデータも「_SNAPSHOT_DATE」という共通の基準日を持っている前提
-if not data["account_stats"].empty:
-    # 日付でソートして最新の1行を確定させる
-    stats_df = data["account_stats"].sort_values(by='_SNAPSHOT_DATE', ascending=True)
-    l_stats = stats_df.iloc[-1]
+    p_name = "プレイヤーデータ"
     
-    for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
-        if name_col in l_stats.index and pd.notna(l_stats[name_col]):
-            p_name = str(l_stats[name_col])
-            break
+    # どのデータも「_SNAPSHOT_DATE」という共通の基準日を持っている前提
+    if not data["account_stats"].empty:
+        # 日付でソートして最新の1行を確定させる
+        stats_df = data["account_stats"].sort_values(by='_SNAPSHOT_DATE', ascending=True)
+        l_stats = stats_df.iloc[-1]
+        
+        for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
+            if name_col in l_stats.index and pd.notna(l_stats[name_col]):
+                p_name = str(l_stats[name_col])
+                break
                 
     # クラン名取得：日付を評価して最新行を抽出する決定版
     clan_tag = "未所属"
