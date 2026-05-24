@@ -512,10 +512,23 @@ def main():
             c_f1, c_f2 = st.columns(2)
             s_nat = c_f1.selectbox("国家で絞り込む", ["すべて"] + list(l_ships['_NATION'].unique()))
             s_typ = c_f2.selectbox("艦種で絞り込む", ["すべて"] + list(l_ships['_SHIP_TYPE'].unique()))
-            query_df = l_ships[(l_ships['_NATION'] == s_nat if s_nat != "すべて" else True) & (l_ships['_SHIP_TYPE'] == s_typ if s_typ != "すべて" else True)]
+            
+            # 💡 三項演算子を排除し、Pandasが正しく解釈できる安全なマスク処理に変更
+            mask = pd.Series(True, index=l_ships.index)
+            if s_nat != "すべて":
+                mask = mask & (l_ships['_NATION'] == s_nat)
+            if s_typ != "すべて":
+                mask = mask & (l_ships['_SHIP_TYPE'] == s_typ)
+                
+            query_df = l_ships[mask]
+            
             records_list = [{"艦艇名": f'<span class="game-ship-name">{r["_CLEAN_NAME"]}</span>', "国家": r['_NATION'], "艦種": r['_SHIP_TYPE'], "戦闘数": r['BATTLES_COUNT'], "勝率": f"{(r['WINS']/r['BATTLES_COUNT']*100):.2f}%", "平均与ダメ": int(r['DAMAGE_DEALT']/r['BATTLES_COUNT'])} for _, r in query_df.iterrows() if r['BATTLES_COUNT'] > 0]
-            if records_list: st.write(pd.DataFrame(records_list).sort_values(by="戦闘数", ascending=False).to_html(escape=False, index=False), unsafe_allow_html=True)
-        else: st.info("データがありません。")
+            if records_list: 
+                st.write(pd.DataFrame(records_list).sort_values(by="戦闘数", ascending=False).to_html(escape=False, index=False), unsafe_allow_html=True)
+            else:
+                st.info("該当する艦艇データがありません。")
+        else: 
+            st.info("データがありません。")
 
     with t_best:
         acc_df = data["account_stats"]
