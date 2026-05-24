@@ -294,7 +294,7 @@ def main():
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
     data = merge_and_optimize(raw_data)
 
-　　# デバッグ：何が読み込まれたか強制表示
+    # デバッグ：何が読み込まれたか強制表示
     st.write("--- [DEBUG] 読み込まれたキー一覧 ---")
     st.write(list(raw_data.keys()))
     
