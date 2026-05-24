@@ -153,6 +153,32 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     tier = (int(tier_match.group()) // 100) if tier_match and int(tier_match.group()) >= 100 else (int(tier_match.group()) if tier_match else 7)
     return nation, ship_class, tier, display_name
 
+def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
+    """💡 どんな形式のタイムスタンプやファイル名からでも確実に正しい日付オブジェクトを返す超堅牢関数"""
+    t_col = next((c for c in ['DOSSIER_UPDATED_AT', 'UPDATED_AT'] if c in df.columns), None)
+    if t_col and not df.empty:
+        raw_val = str(df[t_col].iloc[0]).strip()
+        try:
+            # UNIXタイムスタンプ（秒）のパース試行
+            float_val = float(raw_val)
+            if float_val > 1000000000: # 有効なエポック秒判定
+                return pd.to_datetime(datetime.fromtimestamp(float_val).date())
+        except ValueError:
+            pass
+        
+        try:
+            # YYYY-MM-DD 文字列形式のパース試行
+            return pd.to_datetime(datetime.strptime(raw_val[:10], '%Y-%m-%d').date())
+        except ValueError:
+            pass
+
+    # CSVから取得できない場合はファイル名から YYYY-MM-DD を抽出
+    matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
+    if matches:
+        return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
+        
+    return pd.to_datetime(date.today())
+
 def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataFrame]], List[str], List[str]]:
     all_data: Dict[str, List[pd.DataFrame]] = {k: [] for k in CSV_MAPPING.values()}
     success_zips, errors = [], []
@@ -161,10 +187,11 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
             with zipfile.ZipFile(io.BytesIO(up_file.read())) as z:
                 temp_dfs = {}
                 detected_date = None
+                
+                # 最初に対象となる有効な日付をZIP内部から探索
                 for internal_path in z.namelist():
                     base_name = os.path.basename(internal_path)
                     if base_name in CSV_MAPPING:
-                        key = CSV_MAPPING[base_name]
                         try:
                             content = z.open(internal_path).read().decode('utf-8')
                         except:
@@ -172,17 +199,15 @@ def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataF
                         df = pd.read_csv(io.StringIO(content))
                         if not df.empty:
                             df.columns = [c.strip().upper() for c in df.columns]
-                            temp_dfs[key] = df
+                            temp_dfs[CSV_MAPPING[base_name]] = df
                             if detected_date is None:
-                                t_col = next((c for c in ['DOSSIER_UPDATED_AT', 'UPDATED_AT'] if c in df.columns), None)
-                                if t_col:
-                                    raw_val = str(df[t_col].iloc[0]).strip()
-                                    detected_date = datetime.fromtimestamp(float(raw_val)).date() if raw_val.replace('.','').isdigit() else datetime.strptime(raw_val[:10], '%Y-%m-%d').date()
-                if not detected_date:
-                    matches = re.findall(r'\d{4}-\d{2}-\d{2}', up_file.name)
-                    detected_date = datetime.strptime(matches[0], '%Y-%m-%d').date() if matches else date.today()
+                                detected_date = get_snapshot_date(df, up_file.name)
+                                
+                if detected_date is None:
+                    detected_date = get_snapshot_date(pd.DataFrame(), up_file.name)
+                    
                 for key, df in temp_dfs.items():
-                    df['_SNAPSHOT_DATE'] = pd.to_datetime(detected_date)
+                    df['_SNAPSHOT_DATE'] = detected_date
                     all_data[key].append(df)
                 success_zips.append(f"{up_file.name}")
         except Exception as e:
@@ -196,6 +221,8 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
             merged[key] = pd.DataFrame()
             continue
         df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
+        # 型の不一致を防ぐため念押しでDatetime型キャスト
+        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
         id_cols = ['_SNAPSHOT_DATE']
         if key == 'battle_types': id_cols.append('TYPE')
         if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
@@ -217,7 +244,6 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
-    # 2つの通算累積スナップショットの純粋な「差分（期間内だけの戦闘）」を計算
     b = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
     if b <= 0:
         return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
@@ -249,7 +275,7 @@ def main():
     all_dates = []
     for df in data.values():
         if not df.empty and '_SNAPSHOT_DATE' in df.columns:
-            all_dates.extend(df['_SNAPSHOT_DATE'].unique().tolist())
+            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
     
     if not all_dates:
         st.error("有効な日付データを含むCSVファイルが見つかりません。")
@@ -363,7 +389,7 @@ def main():
             global_kpi = calc_metrics_from_row(pd.DataFrame())
         matrix_columns["全期間"] = global_kpi
 
-        # 💡 【バグ完全修正】各期間を独立させて通算同士の引き算（差分）を厳密に適用
+        # 期間の差分計算
         period_keys = []
         if len(unique_dates) > 1:
             for i in range(len(unique_dates) - 1, 0, -1):
@@ -371,14 +397,12 @@ def main():
                 period_label = f"{d_start.strftime('%Y/%m/%d')}<br>～ {d_end.strftime('%Y/%m/%d')}"
                 period_keys.append(period_label)
                 
-                # 指定日付の通算データを正確にピンポイント抽出
-                df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == pd.to_datetime(d_end)] if not mode_bt_df.empty else pd.DataFrame()
-                df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == pd.to_datetime(d_start)] if not mode_bt_df.empty else pd.DataFrame()
+                # pd.Timestampで厳密にデータマッチング
+                df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_end] if not mode_bt_df.empty else pd.DataFrame()
+                df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_start] if not mode_bt_df.empty else pd.DataFrame()
                 
-                # 💡 累積データのままではなく、必ず関数を通して「差分（期間内単体のデータ）」を計算して割り当てる
                 if not df_end_snap.empty and not df_start_snap.empty:
-                    diff_metrics = calc_period_diff_metrics(df_end_snap, df_start_snap)
-                    matrix_columns[period_label] = diff_metrics
+                    matrix_columns[period_label] = calc_period_diff_metrics(df_end_snap, df_start_snap)
                 else:
                     matrix_columns[period_label] = {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
 
@@ -412,7 +436,7 @@ def main():
         trend_records = []
         if not normal_total_bt.empty:
             for d in unique_dates:
-                snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == pd.to_datetime(d)]
+                snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == d]
                 if not snap_df.empty:
                     kpi = calc_metrics_from_row(snap_df)
                     if kpi["battles"] is not None:
