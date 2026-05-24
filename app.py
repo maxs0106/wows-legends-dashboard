@@ -204,59 +204,58 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
 
     return pd.to_datetime(date.today())
 
-def extract_zip_data(uploaded_files):
-    data = {}
-    success_zips = []
-    errors = []
-    
-    # 【重要】ここから下の「extract_zip_data(uploaded_files)」を呼び出している行は
-    # 全て削除してください。それが無限ループの原因です。
-    
-    for uploaded_file in uploaded_files:
+def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataFrame]], List[str], List[str]]:
+    all_data: Dict[str, List[pd.DataFrame]] = {k: [] for k in CSV_MAPPING.values()}
+    success_zips, errors = [], []
+    for up_file in uploaded_files:
         try:
-            bytes_data = uploaded_file.getvalue()
-            with zipfile.ZipFile(io.BytesIO(bytes_data), 'r') as z:
-                for filename in z.namelist():
-                    name_lower = filename.lower()
+            with zipfile.ZipFile(io.BytesIO(up_file.read())) as z:
+                temp_dfs = {}
+                detected_date = None
+                
+                for internal_path in z.namelist():
+                    base_name = os.path.basename(internal_path)
+                    if base_name in CSV_MAPPING:
+                        try:
+                            content = z.open(internal_path).read().decode('utf-8')
+                        except:
+                            content = z.open(internal_path).read().decode('shift_jis')
+                        df = pd.read_csv(io.StringIO(content))
+                        if not df.empty:
+                            df.columns = [c.strip().upper() for c in df.columns]
+                            temp_dfs[CSV_MAPPING[base_name]] = df
+                
+                for key in ["battle_types", "account_stats", "ship_stats"]:
+                    if key in temp_dfs and detected_date is None:
+                        date_candidate = get_snapshot_date(temp_dfs[key], up_file.name)
+                        if date_candidate != pd.to_datetime(date.today()):
+                            detected_date = date_candidate
+                            break
+                            
+                if detected_date is None:
+                    detected_date = get_snapshot_date(pd.DataFrame(), up_file.name)
                     
-                    # キーの判定（ファイル名に応じて分類）
-                    if 'clans.csv' in name_lower:
-                        key = 'clans'
-                    elif 'wowsl_account_statistics.csv' in name_lower:
-                        key = 'account_stats'
-                    elif 'wowsl_ship_statistics.csv' in name_lower:
-                        key = 'ship_stats'
-                    else:
-                        continue
-
-                    # 読み込み処理
-                    with z.open(filename) as f:
-                        df = pd.read_csv(f)
-                        if key in data:
-                            data[key] = pd.concat([data[key], df], ignore_index=True)
-                        else:
-                            data[key] = df
-            success_zips.append(uploaded_file.name)
+                for key, df in temp_dfs.items():
+                    df['_SNAPSHOT_DATE'] = detected_date
+                    all_data[key].append(df)
+                success_zips.append(f"{up_file.name}")
         except Exception as e:
-            errors.append(f"{uploaded_file.name}: {str(e)}")
-            
-    return data, success_zips, errors
-    
-def merge_and_optimize(raw_data):
-    # 修正前:
-    # if not dfs: 
-    
-    # 修正後:
-    # データが空かどうかを判定するために .empty を使います
-    if not isinstance(raw_data, dict):
-        return None
-        
-    # ここで各データフレームが空でないかを確認する処理に変更してください
-    # 例えばこのように書きます
-    if 'clans' not in raw_data or raw_data['clans'].empty:
-        return raw_data # データがない場合はそのまま返す
-    
-    # 以降の処理...
+            errors.append(f"{up_file.name}: {str(e)}")
+    return all_data, success_zips, errors
+
+def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
+    merged: Dict[str, pd.DataFrame] = {}
+    for key, dfs in raw_data.items():
+        if not dfs:
+            merged[key] = pd.DataFrame()
+            continue
+        df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
+        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
+        id_cols = ['_SNAPSHOT_DATE']
+        if key == 'battle_types': id_cols.append('TYPE')
+        if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
+        merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
+    return merged
 
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty or 'BATTLES_COUNT' not in df.columns or df['BATTLES_COUNT'].sum() <= 0:
@@ -291,57 +290,62 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
 # 4. メインアプリケーションルーチン
 # ==========================================
 def main():
-    # 1. サイドバーでファイルをアップロードしてもらうのが最初
     st.sidebar.header("データインポート")
     uploaded_files = st.sidebar.file_uploader("ZIPデータダンプ投入", type="zip", accept_multiple_files=True)
     
-    # ファイルがない場合はここで終了（これより下にデバッグを書かない）
     if not uploaded_files:
         st.info("サイドバーから個人データZIPファイルを複数アップロードしてください。")
         return
 
-    # 2. ファイルがある場合のみ読み込み処理を実行
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
     data = merge_and_optimize(raw_data)
-
-    # デバッグ：何が読み込まれたか強制表示
-    st.write("--- [DEBUG] 読み込まれたキー一覧 ---")
-    st.write(list(raw_data.keys()))
     
-    if not raw_data:
-        st.error("raw_data が空です。ZIPファイルの中にCSVファイルは存在しますか？")
-        st.write("エラー詳細:", errors)
+    all_dates = []
+    for df in data.values():
+        if not df.empty and '_SNAPSHOT_DATE' in df.columns:
+            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
+    
+    if not all_dates:
+        st.error("有効な日付データを含むCSVファイルが見つかりません。")
         return
+        
+    unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
+
+    ship_df = data["ship_stats"]
+    if not ship_df.empty:
+        parsed_meta = ship_df['VEHICLE_NAME'].apply(parse_ship_id)
+        ship_df['_NATION'] = [x[0] for x in parsed_meta]
+        ship_df['_SHIP_TYPE'] = [x[1] for x in parsed_meta]
+        ship_df['_ESTIMATED_TIER'] = [x[2] for x in parsed_meta]
+        ship_df['_CLEAN_NAME'] = [x[3] for x in parsed_meta]
+        data["ship_stats"] = ship_df
+
+    # ⚓ プレイヤー名・クラン名の堅牢な抽出
+    clan_tag, p_name = None, "プレイヤーデータ"
     
-    # 3. データの存在確認
-    if not data or "account_stats" not in data:
-        st.error("データの読み込みに失敗しました。")
-        return
-
-    # --- (日付データチェックなどの既存処理) ---
-
-    # 4. クラン名・プレイヤー名の算出 (先に clan_tag を定義する)
-    clan_tag = "未所属" # 初期値
-    p_name = "プレイヤーデータ"
-    
-    # クラン抽出ロジック
-    if "clans" in data and not data["clans"].empty:
-        df = data["clans"].copy()
-        df['dt_created'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
-        latest_row = df.sort_values(by='dt_created', ascending=False).iloc[0]
-        clan_tag = str(latest_row['CLAN_NAME']).strip()
-
-    # アカウント名抽出
-    if not data["account_stats"].empty:
-        stats_df = data["account_stats"].sort_values(by='_SNAPSHOT_DATE', ascending=True)
-        l_stats = stats_df.iloc[-1]
+    if not data["account_info"].empty:
+        l_info = data["account_info"].iloc[-1]
+        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
+        
+    if p_name == "プレイヤーデータ" and not data["account_stats"].empty:
+        l_stats = data["account_stats"].iloc[-1]
         for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
             if name_col in l_stats.index and pd.notna(l_stats[name_col]):
                 p_name = str(l_stats[name_col])
                 break
+                
+    # 💡 クラン名バグの修正: 過去履歴に惑わされず、一番最新日付データからタグを厳選
+    if not data["clans"].empty:
+        latest_clan_df = data["clans"].sort_values(by='_SNAPSHOT_DATE').iloc[-1:]
+        l_clan = latest_clan_df.iloc[0]
+        for col in l_clan.index:
+            if col != '_SNAPSHOT_DATE' and pd.notna(l_clan[col]) and str(l_clan[col]).strip() != "":
+                val_str = str(l_clan[col]).strip()
+                if 2 <= len(val_str) <= 5 and val_str.isalnum():
+                    clan_tag = val_str
+                    break
 
-    # 5. ここで初めて画面に表示する
-    player_display_string = f"【{clan_tag}】{p_name}"
+    player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
     header_html = f"""
     <div class="game-header-container">
@@ -357,17 +361,6 @@ def main():
         "総合戦績 (マトリクス)", "国家別分析", "艦種別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
     ])
 
-    # データを可視化して、何が起きているかを目視確認する
-    if not data["clans"].empty:
-        st.write("### [DEBUG] Clans.csv 全データ確認")
-        df_debug = data["clans"].copy()
-        # 日時変換を試みて可視化
-        if 'CREATED_AT' in df_debug.columns:
-            df_debug['dt_created'] = pd.to_datetime(df_debug['CREATED_AT'], errors='coerce')
-        st.dataframe(df_debug)
-    else:
-        st.write("Clansデータが空です")
-        
     # ------------------------------------------
     # Tab 1: 総合戦績
     # ------------------------------------------
@@ -579,32 +572,36 @@ def main():
     with t_best:
         acc_df = data["account_stats"]
         if not acc_df.empty:
-            # 検索対象のキーワード
-            best_rules = [
-                ("最高与ダメージ", "DAMAGE"), 
-                ("最高経験値", "EXP"), 
-                ("最高撃沈数", "FRAGS"), 
-                ("最大メイン砲命中", "HIT")
+            # 💡 キー名のズレに対応する柔軟なマッピング
+            search_rules = [
+                ("最高与ダメージ", ["DAMAGE_DEALT", "DAMAGE", "MAX_DAMAGE"]),
+                ("最高経験値", ["MAX_EXP", "EXP", "MAXIMUM_EXP"]),
+                ("最高撃沈数", ["MAX_FRAGS", "FRAGS", "KILLS"]),
+                ("最大メイン砲命中", ["MAX_MAIN_HIT", "MAIN_HIT", "MAIN_BATTERY"])
             ]
-            b_records = []
-            for label, kw in best_rules:
-                # 該当キーワードを含む列を探す
-                target_cols = [c for c in acc_df.columns if kw.upper() in c.upper()]
-                if target_cols:
-                    # 全候補列を数値化し、全データ期間中の最大値を取得
-                    max_val = 0
-                    for c in target_cols:
-                        series = pd.to_numeric(acc_df[c], errors='coerce')
-                        if not series.empty:
-                            max_val = max(max_val, series.max())
-                    b_records.append({"項目": label, "記録": f"{int(max_val):,}"})
             
-            if b_records:
-                st.dataframe(pd.DataFrame(b_records), width=500, hide_index=True)
+            b_records = []
+            for label, potential_cols in search_rules:
+                matched_col = None
+                # 完全一致または部分一致するカラムを探す
+                for c in acc_df.columns:
+                    if any(p in c for p in potential_cols):
+                        matched_col = c
+                        break
+                
+                if matched_col:
+                    # 強制的に数値化して最大値をスキャン
+                    series_num = pd.to_numeric(acc_df[matched_col], errors='coerce').dropna()
+                    if not series_num.empty:
+                        b_records.append({"項目": label, "記録": f"{int(series_num.max()):,}"})
+                        
+            if b_records: 
+                st.dataframe(pd.DataFrame(b_records), width='stretch', hide_index=True)
             else:
-                st.info("自己ベスト項目が見つかりませんでした。")
+                st.warning("項目データの抽出に失敗しました。CSVのカラム名が変更されている可能性があります。")
         else: 
-            st.info("自己ベストデータが確認できません。")
+            st.info("自己ベストデータ（account_stats）が確認できません。")
+
     # ------------------------------------------
     # Tab 6: クランデータ
     # ------------------------------------------
