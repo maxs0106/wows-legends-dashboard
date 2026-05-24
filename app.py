@@ -66,7 +66,7 @@ CSS_STYLE = """
         font-family: monospace;
     }
 
-    /* 📊 画像再現：縦横マス目固定・期間別横スクロールコンテナ */
+    /* 📊 縦横マス目固定・期間別横スクロールコンテナ */
     .matrix-scroll-wrapper {
         position: relative;
         width: 100%;
@@ -86,7 +86,6 @@ CSS_STYLE = """
         padding: 14px;
         border-bottom: 1px solid #1e293b;
         border-right: 1px solid #1e293b;
-        /* マス目を完全固定サイズにするための絶対指定 */
         min-width: 150px;
         max-width: 150px;
         width: 150px;
@@ -128,13 +127,11 @@ CSS_STYLE = """
         background-color: #131c2e;
     }
     
-    /* データが存在しないマスの表現（ハイフン表示用） */
     .empty-cell {
         color: #475569;
         font-weight: normal;
     }
     
-    /* 🚢 1枚目画像準拠の艦艇名シックデザイン */
     .game-ship-name {
         font-family: 'Courier New', Courier, monospace;
         font-weight: 700;
@@ -151,12 +148,21 @@ CSS_STYLE = """
         margin: 12px 0 6px 0;
         font-weight: 700;
     }
+    
+    .chart-section-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 35px 0 15px 0;
+        padding-left: 8px;
+        border-left: 4px solid #00f2fe;
+    }
 </style>
 """
 st.markdown(CSS_STYLE, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 定数定義 & 28通り対応戦闘タイプマスター
+# 2. 定数定義 & 戦闘タイプマスター
 # ==========================================
 CSV_MAPPING = {
     "WOWSL_Account_Statistics.csv": "account_stats",
@@ -168,18 +174,15 @@ CSV_MAPPING = {
     "Account_Info.csv": "account_info"
 }
 
-# 💡 1枚目画像準拠：国家コードマッピング
 IMAGE_NATION_MAP = {
     "a": "米国", "b": "イギリス", "f": "フランス", "g": "ドイツ",
     "i": "イタリア", "j": "日本", "r": "ロシア", "w": "汎ヨーロッパ", "z": "パンアジア"
 }
 
-# 💡 1枚目画像準拠：クラスコードマッピング
 IMAGE_CLASS_MAP = {
     "a": "キャリア", "b": "戦艦", "c": "クルーザー", "d": "駆逐艦"
 }
 
-# 💡 1枚目画像準拠：珍しい船名の完全翻訳オーバーライド辞書
 RARE_SHIPS_DECODER = {
     "pasb014_arkansas_1912_clone": "アーカンソー (通常)",
     "pasb004_arkansas_1912": "ワイオミング (TT)",
@@ -222,41 +225,30 @@ BATTLE_TYPE_MAP = {
 }
 
 # ==========================================
-# 3. 解析エンジン (1枚目画像準拠デコーダ搭載)
+# 3. 解析・計算エンジン
 # ==========================================
 def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     if not isinstance(vehicle_name, str) or len(vehicle_name) < 4:
         return "その他", "その他", 0, str(vehicle_name)
     
     low_name = vehicle_name.lower().strip()
-    
-    # 1. 珍しい船名マッピングの完全一致チェック
     if low_name in RARE_SHIPS_DECODER:
         display_name = RARE_SHIPS_DECODER[low_name]
     else:
-        # 部分一致のクリーンアップ対応
         found_rare = None
         for k, v in RARE_SHIPS_DECODER.items():
             if k in low_name or low_name in k:
                 found_rare = v
                 break
-        if found_rare:
-            display_name = found_rare
-        else:
-            # デフォルトのクリーンアップ（アンダースコアの末尾側を取り出す）
-            display_name = vehicle_name.split('_')[-1] if '_' in vehicle_name else vehicle_name
+        display_name = found_rare if found_rare else (vehicle_name.split('_')[-1] if '_' in vehicle_name else vehicle_name)
 
-    # 2. 画像に記載された命名規則「P」+国コード+「S」+クラスコードの解析
-    # 例: PASB014 -> P (1文字目), A (国:2文字目), S (3文字目), B (クラス:4文字目)
-    nation = "その他"
-    ship_class = "その他"
+    nation, ship_class = "その他", "その他"
     if low_name.startswith('p') and len(low_name) >= 4:
         n_code = low_name[1]
         c_code = low_name[3] if low_name[2] == 's' else low_name[2]
         nation = IMAGE_NATION_MAP.get(n_code, "その他")
         ship_class = IMAGE_CLASS_MAP.get(c_code, "その他")
         
-    # ティアの判定
     tier_match = re.search(r'\d+', vehicle_name)
     if tier_match:
         val = int(tier_match.group())
@@ -373,7 +365,6 @@ def main():
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
     data = merge_and_optimize(raw_data)
     
-    # タイムスタンプ・ユニーク日付のソート（最新が右になるよう一度ベースを用意）
     all_dates = []
     for df in data.values():
         if not df.empty and '_SNAPSHOT_DATE' in df.columns:
@@ -427,67 +418,48 @@ def main():
     ])
 
     # ------------------------------------------
-    # Tab 1: 総合戦績（2段構成UI & 画像再現・固定横スクロール表）
+    # Tab 1: 総合戦績（固定形式ボタン＆各種グラフィカルアナリティクス）
     # ------------------------------------------
     with t_summary:
         bt_df = data["battle_types"]
         
-        # 動的に存在する戦闘タイプIDを抽出
-        available_ids = set()
-        if not bt_df.empty: available_ids.update(bt_df['TYPE'].unique().tolist())
-        if not ship_df.empty: available_ids.update(ship_df['TYPE'].unique().tolist())
-            
-        # 4. 2段構成用：データが存在する「モード」と「部隊形式」のフィルタマッピング
-        available_modes = set()
-        available_teams_map = {}
-        
-        for tid, meta in BATTLE_TYPE_MAP.items():
-            if tid in available_ids:
-                m = meta["mode"]
-                t = meta["team"]
-                available_modes.add(m)
-                if m not in available_teams_map: available_teams_map[m] = []
-                if t not in available_teams_map[m]: available_teams_map[m].append(t)
-                    
-        if not available_modes:
-            st.warning("アップロードされたデータから戦闘タイプを識別できませんでした。")
-            return
-
-        # セッション状態による選択管理
+        # 💡 モード（STEP1）の決定（固定オーダーから存在するものをアクティブ化）
+        available_modes = set([meta["mode"] for meta in BATTLE_TYPE_MAP.values()])
         if 'sel_mode' not in st.session_state:
-            st.session_state.sel_mode = "通常" if "通常" in available_modes else list(available_modes)[0]
+            st.session_state.sel_mode = "通常"
         current_mode = st.session_state.sel_mode
-        if current_mode not in available_teams_map:
-            current_mode = list(available_modes)[0]
-            st.session_state.sel_mode = current_mode
-            
-        if 'sel_team' not in st.session_state:
-            st.session_state.sel_team = available_teams_map[current_mode][0]
-        if st.session_state.sel_team not in available_teams_map[current_mode]:
-            st.session_state.sel_team = available_teams_map[current_mode][0]
 
-        # --- 1段目: モード選択 (レスポンシブミニボタン) ---
+        # --- 1段目: モード選択 ---
         st.markdown('<div class="mode-selection-header">■ STEP1: モード選択</div>', unsafe_allow_html=True)
         mode_order = ["通常", "AI", "ランク", "アリーナ", "闘争", "アーケード", "クラン戦", "軍記"]
-        actual_modes = [m for m in mode_order if m in available_modes]
         
-        m_cols = st.columns(max(len(actual_modes), 4))
-        for idx, m_name in enumerate(actual_modes):
-            with m_cols[idx % len(m_cols)]:
+        m_cols = st.columns(len(mode_order))
+        for idx, m_name in enumerate(mode_order):
+            with m_cols[idx]:
                 if st.button(m_name, key=f"btn_m_{m_name}", use_container_width=True, 
                              type="primary" if current_mode == m_name else "secondary"):
                     st.session_state.sel_mode = m_name
-                    st.session_state.sel_team = available_teams_map[m_name][0]
                     st.rerun()
 
-        # --- 2段目: 部隊形式選択 (レスポンシブミニボタン) ---
-        st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
+        # 💡 改善点：選択されたモードにおける部隊形式（STEP2）を「データが空でもマスター定義から全て固定表示」
         team_order = ["総合", "ソロ", "2人分隊", "3人分隊"]
-        actual_teams = [t for t in team_order if t in available_teams_map[current_mode]]
         
+        # 現在のモード内で定義されている形式ボタンを抽出
+        actual_teams = []
+        for t_name in team_order:
+            for tid, meta in BATTLE_TYPE_MAP.items():
+                if meta["mode"] == current_mode and meta["team"] == t_name:
+                    actual_teams.append(t_name)
+                    break
+        
+        if 'sel_team' not in st.session_state or st.session_state.sel_team not in actual_teams:
+            st.session_state.sel_team = actual_teams[0] if actual_teams else "総合"
+
+        # --- 2段目: 部隊形式選択 ---
+        st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
         t_cols = st.columns(max(len(actual_teams), 4))
         for idx, t_name in enumerate(actual_teams):
-            with t_cols[idx % len(t_cols)]:
+            with t_cols[idx]:
                 if st.button(t_name, key=f"btn_t_{t_name}", use_container_width=True,
                              type="primary" if st.session_state.sel_team == t_name else "secondary"):
                     st.session_state.sel_team = t_name
@@ -503,10 +475,10 @@ def main():
         mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty else pd.DataFrame()
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty else pd.DataFrame()
 
-        # ---- 5. マトリクスデータの構築（2枚目画像準拠：縦横マス目完全固定） ----
+        # ---- マトリクスデータの構築 ----
         matrix_columns = {}
         
-        # A. 全期間データの抽出 (最新のスナップショット日付から計算)
+        # A. 全期間データの抽出
         if not mode_bt_df.empty:
             l_snap = mode_bt_df['_SNAPSHOT_DATE'].max()
             global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == l_snap])
@@ -518,15 +490,15 @@ def main():
             
         matrix_columns["全期間"] = global_kpi
 
-        # B. 期間別データの抽出（仕様：左側が最新日付順 YYYY/MM/DD）
+        # B. 期間別データの抽出（最新日付が左側に来る逆順配置仕様）
         period_keys = []
+        graph_periods = []  # グラフ用に時系列順のデータも保持するためのリスト
+        
         if len(unique_dates) > 1:
-            # 逆順ループで最新の期間を左側にする
             for i in range(len(unique_dates) - 1, 0, -1):
                 d_start = unique_dates[i-1]
                 d_end = unique_dates[i]
                 
-                # 日付形式の統一：YYYY/MM/DD
                 period_label = f"{d_start.strftime('%Y/%m/%d')}<br>～ {d_end.strftime('%Y/%m/%d')}"
                 period_keys.append(period_label)
                 
@@ -540,19 +512,24 @@ def main():
                     df_end_snap, df_start_snap = pd.DataFrame(), pd.DataFrame()
                 
                 if not df_end_snap.empty and not df_start_snap.empty:
-                    matrix_columns[period_label] = calc_period_diff_metrics(df_end_snap, df_start_snap)
+                    metrics = calc_period_diff_metrics(df_end_snap, df_start_snap)
                 else:
-                    # データがないマスも固定枠として残すため、None構造を格納
-                    matrix_columns[period_label] = calc_metrics_from_row(pd.DataFrame())
+                    metrics = calc_metrics_from_row(pd.DataFrame())
+                
+                matrix_columns[period_label] = metrics
+                graph_periods.append({
+                    "label": f"{d_start.strftime('%m/%d')}~{d_end.strftime('%m/%d')}",
+                    "win_rate": metrics["win_rate"],
+                    "avg_damage": metrics["avg_damage"],
+                    "avg_xp": metrics["avg_xp"],
+                    "order": i
+                })
 
         # 行表示の定義インジケーター
         row_indicators = [
-            ("戦闘", "battles", "{:,}"),
-            ("勝率", "win_rate", "{:.2f}%"),
-            ("生還", "survived_rate", "{:.2f}%"),
-            ("与ダメージ", "avg_damage", "{:,.0f}"),
-            ("キル/デス比", "kd", "{:.2f}"),
-            ("艦船撃沈", "avg_frags", "{:.2f}"),
+            ("戦闘", "battles", "{:,}"), ("勝率", "win_rate", "{:.2f}%"),
+            ("生還", "survived_rate", "{:.2f}%"), ("与ダメージ", "avg_damage", "{:,.0f}"),
+            ("キル/デス比", "kd", "{:.2f}"), ("艦船撃沈", "avg_frags", "{:.2f}"),
             ("取得経験値", "avg_xp", "{:,.0f}")
         ]
 
@@ -561,22 +538,18 @@ def main():
         html_table += '<th class="sticky-indicator">各種データ</th>'
         html_table += '<th class="sticky-lifetime">全期間</th>'
         
-        # 期間別カラムヘッドの出力
         for p_key in period_keys:
             html_table += f'<th>{p_key}</th>'
         html_table += '</tr></thead><tbody>'
         
         for label, key, fmt in row_indicators:
             html_table += f'<tr><td class="sticky-indicator">{label}</td>'
-            
-            # 全期間セルの値
             lt_val = matrix_columns["全期間"][key]
             if lt_val is not None:
                 html_table += f'<td class="sticky-lifetime">{fmt.format(lt_val)}</td>'
             else:
                 html_table += '<td class="sticky-lifetime empty-cell">-</td>'
             
-            # 期間別マスの出力（2枚目画像のように、データが無い場合は「-」を空欄としてガッチリ表示固定）
             for p_key in period_keys:
                 p_val = matrix_columns[p_key][key]
                 if p_val is not None and pd.notna(p_val):
@@ -587,6 +560,103 @@ def main():
             
         html_table += '</tbody></table></div>'
         st.markdown(html_table, unsafe_allow_html=True)
+
+        # ------------------------------------------
+        # 📈 📊 新機能: 総合戦績グラフィカルアナリティクス
+        # ------------------------------------------
+        st.markdown('<div class="chart-section-title">📊 期間別トレンド・アナリティクス</div>', unsafe_allow_html=True)
+        
+        # グラフ用データフレーム生成（時系列順に並び替え）
+        g_df = pd.DataFrame(graph_periods).sort_values(by="order").dropna(subset=["win_rate"])
+        
+        if not g_df.empty:
+            cg1, cg2 = st.columns(2)
+            
+            # 1. 勝率の推移（折れ線グラフ）
+            with cg1:
+                fig_win = px.line(g_df, x="label", y="win_rate", markers=True, text=g_df["win_rate"].apply(lambda x: f"{x:.1f}%"),
+                                  title="【勝率】の期間推移トレンド", labels={"label": "期間", "win_rate": "勝率 (%)"})
+                fig_win.update_traces(line_color="#00f2fe", marker=dict(size=8, color="#ffffff"), textposition="top center")
+                fig_win.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", yaxis=dict(gridcolor="#1e293b"))
+                st.plotly_chart(fig_win, use_container_width=True)
+                
+            # 2. 平均ダメージ & 平均経験値（2軸/並列バーチャート）
+            with cg2:
+                fig_dmg_xp = go.Figure()
+                fig_dmg_xp.add_trace(go.Bar(x=g_df["label"], y=g_df["avg_damage"], name="平均ダメージ", marker_color="#38bdf8", yaxis="y"))
+                fig_dmg_xp.add_trace(go.Bar(x=g_df["label"], y=g_df["avg_xp"], name="平均経験値", marker_color="#fbbf24", yaxis="y2"))
+                fig_dmg_xp.update_layout(
+                    title="【平均ダメージ】&【平均経験値】トレンド",
+                    template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14",
+                    xaxis=dict(title="期間"),
+                    yaxis=dict(title="平均与ダメージ", gridcolor="#1e293b", color="#38bdf8"),
+                    yaxis2=dict(title="平均経験値", side="right", overlaying="y", color="#fbbf24"),
+                    bgroupmode="group", legend=dict(x=0.01, y=0.99)
+                )
+                st.plotly_chart(fig_dmg_xp, use_container_width=True)
+        else:
+            st.info("期間別の遷移グラフを描画するための十分な差分データがありません。")
+
+        # 3. 国籍・艦種別の戦闘数シェア（円グラフ） & レーダーチャート
+        st.markdown('<div class="chart-section-title">🚢 国籍・艦種配分シェア & 戦闘能力レーダー</div>', unsafe_allow_html=True)
+        
+        if not mode_filtered_ship_df.empty:
+            # 最新スナップショットの艦艇データを利用
+            l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()]
+            
+            c1, c2, c3 = st.columns(3)
+            
+            # A. 国籍別円グラフ
+            with c1:
+                nat_share = l_ships.groupby("_NATION")["BATTLES_COUNT"].sum().reset_index()
+                fig_pie_nat = px.pie(nat_share, values="BATTLES_COUNT", names="_NATION", hole=0.4, title="国籍別 戦闘数シェア",
+                                     color_discrete_sequence=px.colors.radial.Sunset_r)
+                fig_pie_nat.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
+                st.plotly_chart(fig_pie_nat, use_container_width=True)
+                
+            # B. 艦種別円グラフ
+            with c2:
+                typ_share = l_ships.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index()
+                fig_pie_typ = px.pie(typ_share, values="BATTLES_COUNT", names="_SHIP_TYPE", hole=0.4, title="艦種別 戦闘数シェア",
+                                     color_discrete_sequence=px.colors.radial.Neon)
+                fig_pie_typ.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
+                st.plotly_chart(fig_pie_typ, use_container_width=True)
+                
+            # C. レーダーチャート（戦闘能力評価）
+            with c3:
+                if global_kpi["battles"] is not None:
+                    # 全期間の数値を基準とした相対最大スケール値の算出(上限設定による綺麗に変形するレーダー)
+                    r_metrics = ["勝率", "生存率", "与ダメージ", "K/D比", "撃沈数", "経験値"]
+                    r_values = [
+                        min(100.0, global_kpi["win_rate"] * 1.5) if global_kpi["win_rate"] else 0,
+                        min(100.0, global_kpi["survived_rate"] * 1.5) if global_kpi["survived_rate"] else 0,
+                        min(150000.0, global_kpi["avg_damage"]) if global_kpi["avg_damage"] else 0,
+                        min(5.0, global_kpi["kd"]) if global_kpi["kd"] else 0,
+                        min(3.0, global_kpi["avg_frags"] * 2) if global_kpi["avg_frags"] else 0,
+                        min(3000.0, global_kpi["avg_xp"]) if global_kpi["avg_xp"] else 0
+                    ]
+                    # 表示用に実数値を成形
+                    r_text = [
+                        f"{global_kpi['win_rate']:.1f}%", f"{global_kpi['survived_rate']:.1f}%",
+                        f"{int(global_kpi['avg_damage']):,}", f"{global_kpi['kd']:.2f}",
+                        f"{global_kpi['avg_frags']:.2f}", f"{int(global_kpi['avg_xp']):,}"
+                    ]
+                    
+                    fig_radar = go.Figure()
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=r_values, theta=r_metrics, fill='toself', name='全期間総合',
+                        fillcolor='rgba(0, 242, 254, 0.2)', line=dict(color='#00f2fe', width=2),
+                        text=r_text, hoverinfo="text+theta"
+                    ))
+                    fig_radar.update_layout(
+                        polar=dict(radialaxis=dict(visible=False), gridshape='polygon'),
+                        title="戦闘能力レーダーチャート", template="plotly_dark", paper_bgcolor="#070d14"
+                    )
+                    st.plotly_chart(fig_radar, use_container_width=True)
+                else:
+                    st.info("レーダーチャートを構成するデータが不足しています。")
+        else:
+            st.info("シェア分析を行うための艦艇別詳細スナップショットが存在しません。")
 
     # ------------------------------------------
     # Tab 2: 国家別分析
@@ -623,7 +693,7 @@ def main():
             st.info("選択されたモードにデータがありません。")
 
     # ------------------------------------------
-    # Tab 4: 艦艇別詳細データ（1枚目画像準拠：高精度デコードネーム）
+    # Tab 4: 艦艇別詳細データ
     # ------------------------------------------
     with t_ship:
         if not mode_filtered_ship_df.empty:
@@ -640,7 +710,6 @@ def main():
             for _, row in query_df.iterrows():
                 row_kpi = calc_metrics_from_row(pd.DataFrame([row]))
                 if row_kpi["battles"] is not None:
-                    # シックで近未来的なゲーム風の枠付き等幅フォント表記をHTMLで実現
                     ship_html = f'<span class="game-ship-name">{row["_CLEAN_NAME"]}</span>'
                     records_list.append({
                         "艦艇名": ship_html, "国家": row['_NATION'], "艦種": row['_SHIP_TYPE'],
