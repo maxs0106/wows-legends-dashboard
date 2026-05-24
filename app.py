@@ -205,36 +205,32 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
     return pd.to_datetime(date.today())
 
 def extract_zip_data(uploaded_files):
-    for uploaded_file in uploaded_files:
-        with zipfile.ZipFile(uploaded_file, 'r') as z:
-            st.write(f"ZIP内のファイルリスト: {z.namelist()}")
     data = {}
-    success_zips = []
-    errors = []
-    
     for uploaded_file in uploaded_files:
-        try:
-            # 💡 【重要】StreamlitのファイルをBytesIOに変換する
-            bytes_data = uploaded_file.getvalue()
-            with zipfile.ZipFile(io.BytesIO(bytes_data), 'r') as z:
-                for filename in z.namelist():
-                    if filename.endswith('.csv'):
-                        # ファイル読み込み
-                        with z.open(filename) as f:
-                            df = pd.read_csv(f)
-                            key = filename.replace('.csv', '').lower()
-                            
-                            # データの結合処理
-                            if key in data:
-                                data[key] = pd.concat([data[key], df], ignore_index=True)
-                            else:
-                                data[key] = df
-            success_zips.append(uploaded_file.name)
-        except Exception as e:
-            errors.append(f"{uploaded_file.name}: {str(e)}")
-            
-    return data, success_zips, errors
+        bytes_data = uploaded_file.getvalue()
+        with zipfile.ZipFile(io.BytesIO(bytes_data), 'r') as z:
+            for filename in z.namelist():
+                name_lower = filename.lower()
+                
+                # ファイルパスに関わらず、ファイル名単体で判定
+                # これで 'Clans/Clans.csv' も 'Player_Statistics/WOWSL_Ship_Statistics.csv' もヒットします
+                if 'clans.csv' in name_lower:
+                    key = 'clans'
+                elif 'wowsl_account_statistics.csv' in name_lower:
+                    key = 'account_stats'
+                elif 'wowsl_ship_statistics.csv' in name_lower:
+                    key = 'ship_stats'
+                else:
+                    continue
 
+                with z.open(filename) as f:
+                    df = pd.read_csv(f)
+                    if key in data:
+                        data[key] = pd.concat([data[key], df], ignore_index=True)
+                    else:
+                        data[key] = df
+    return data, [], []
+    
 def merge_and_optimize(raw_data):
     # 修正前:
     # if not dfs: 
