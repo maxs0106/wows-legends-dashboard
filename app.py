@@ -334,21 +334,14 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得の修正：CLAN_NAME列を直接指定し、CREATED_ATで最新行を特定
-    clan_tag = None
+    # 1. クラン名抽出（最新レコード確定版）
+    clan_tag = "未所属"
     if not data["clans"].empty:
-        clan_df = data["clans"].copy()
-        
-        # 1. 'CREATED_AT' 列があればそれを数値化してソートの基準にする
-        #    なければスナップショット日付（_SNAPSHOT_DATE）を基準にする
-        sort_col = 'CREATED_AT' if 'CREATED_AT' in clan_df.columns else '_SNAPSHOT_DATE'
-        clan_df[sort_col] = pd.to_numeric(clan_df[sort_col], errors='coerce')
-        
-        # 2. 最新の1行を取得
-        latest_row = clan_df.sort_values(by=sort_col, ascending=False).iloc[0]
-        
-        # 3. 'CLAN_NAME' 列から直接取得
-        if 'CLAN_NAME' in latest_row.index and pd.notna(latest_row['CLAN_NAME']):
+        df_clan = data["clans"].copy()
+        # CREATED_AT で最新レコードを特定
+        df_clan['CREATED_AT'] = pd.to_numeric(df_clan['CREATED_AT'], errors='coerce')
+        latest_row = df_clan.sort_values(by='CREATED_AT', ascending=False).iloc[0]
+        if pd.notna(latest_row['CLAN_NAME']):
             clan_tag = str(latest_row['CLAN_NAME']).strip()
 
 
@@ -367,11 +360,6 @@ def main():
     t_summary, t_nation, t_type, t_ship, t_best, t_clan = st.tabs([
         "総合戦績 (マトリクス)", "国家別分析", "艦種別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
     ])
-    # --- デバッグ用出力 ---
-    st.write("### [DEBUG] 読み込み済みカラムの確認")
-    st.write("Clansカラム:", data["clans"].columns.tolist())
-    st.write("AccountStatsカラム:", data["account_stats"].columns.tolist())
-    # ---------------------
         
     # ------------------------------------------
     # Tab 1: 総合戦績
