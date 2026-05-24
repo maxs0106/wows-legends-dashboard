@@ -204,44 +204,47 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
 
     return pd.to_datetime(date.today())
 
-def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataFrame]], List[str], List[str]]:
-    all_data: Dict[str, List[pd.DataFrame]] = {k: [] for k in CSV_MAPPING.values()}
-    success_zips, errors = [], []
-    for up_file in uploaded_files:
+def extract_zip_data(uploaded_files):
+    """
+    アップロードされたZIPファイルを展開し、CSVデータを辞書形式で返します。
+    """
+    data = {}
+    success_zips = []
+    errors = []
+    
+    # マッピング辞書：ファイル名の一部をキーに変換
+    KEY_MAP = {
+        'clans.csv': 'clans',
+        'wowsl_account_statistics.csv': 'account_stats',
+        'wowsl_ship_statistics.csv': 'ship_stats'
+    }
+
+    for uploaded_file in uploaded_files:
         try:
-            with zipfile.ZipFile(io.BytesIO(up_file.read())) as z:
-                temp_dfs = {}
-                detected_date = None
-                
-                for internal_path in z.namelist():
-                    base_name = os.path.basename(internal_path)
-                    if base_name in CSV_MAPPING:
-                        try:
-                            content = z.open(internal_path).read().decode('utf-8')
-                        except:
-                            content = z.open(internal_path).read().decode('shift_jis')
-                        df = pd.read_csv(io.StringIO(content))
-                        if not df.empty:
-                            df.columns = [c.strip().upper() for c in df.columns]
-                            temp_dfs[CSV_MAPPING[base_name]] = df
-                
-                for key in ["battle_types", "account_stats", "ship_stats"]:
-                    if key in temp_dfs and detected_date is None:
-                        date_candidate = get_snapshot_date(temp_dfs[key], up_file.name)
-                        if date_candidate != pd.to_datetime(date.today()):
-                            detected_date = date_candidate
-                            break
-                            
-                if detected_date is None:
-                    detected_date = get_snapshot_date(pd.DataFrame(), up_file.name)
+            # メモリ上でZIPを開く
+            with zipfile.ZipFile(io.BytesIO(uploaded_file.getvalue()), 'r') as z:
+                for filename in z.namelist():
+                    name_lower = filename.lower()
                     
-                for key, df in temp_dfs.items():
-                    df['_SNAPSHOT_DATE'] = detected_date
-                    all_data[key].append(df)
-                success_zips.append(f"{up_file.name}")
+                    # ファイル名での判定
+                    key = None
+                    for k, v in KEY_MAP.items():
+                        if k in name_lower:
+                            key = v
+                            break
+                    
+                    if key:
+                        with z.open(filename) as f:
+                            df = pd.read_csv(f)
+                            if key in data:
+                                data[key] = pd.concat([data[key], df], ignore_index=True)
+                            else:
+                                data[key] = df
+            success_zips.append(uploaded_file.name)
         except Exception as e:
-            errors.append(f"{up_file.name}: {str(e)}")
-    return all_data, success_zips, errors
+            errors.append(f"{uploaded_file.name}: {str(e)}")
+            
+    return data, success_zips, errors
 
 def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
     merged: Dict[str, pd.DataFrame] = {}
