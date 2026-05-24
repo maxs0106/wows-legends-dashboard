@@ -334,15 +334,31 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # 1. クラン名抽出（最新レコード確定版）
-    clan_tag = "未所属"
+    # クラン名のデバッグ表示
+    st.write("--- クラン名デバッグ ---")
+    clan_tag = "取得不可"
     if not data["clans"].empty:
         df_clan = data["clans"].copy()
-        # CREATED_AT で最新レコードを特定
-        df_clan['CREATED_AT'] = pd.to_numeric(df_clan['CREATED_AT'], errors='coerce')
-        latest_row = df_clan.sort_values(by='CREATED_AT', ascending=False).iloc[0]
-        if pd.notna(latest_row['CLAN_NAME']):
-            clan_tag = str(latest_row['CLAN_NAME']).strip()
+        
+        # 全データの日付順ソート
+        sort_col = 'CREATED_AT' if 'CREATED_AT' in df_clan.columns else '_SNAPSHOT_DATE'
+        df_clan[sort_col] = pd.to_numeric(df_clan[sort_col], errors='coerce')
+        latest_row = df_clan.sort_values(by=sort_col, ascending=False).iloc[0]
+        
+        # デバッグ：データの中身を全表示
+        st.write("最新行の全データ:", latest_row.to_dict())
+        
+        # CLAN_NAME の確認
+        val = latest_row.get('CLAN_NAME')
+        st.write("CLAN_NAME列の値:", val)
+        
+        if pd.notna(val) and str(val).strip() != "":
+            clan_tag = str(val).strip()
+    else:
+        st.write("Clansデータ自体が空です")
+    
+    st.write("決定されたクランタグ:", clan_tag)
+    st.write("-----------------------")
 
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
