@@ -614,9 +614,9 @@ def main():
                 
             with c2:
                 typ_share = l_ships.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index()
-                # 💡 px.colors.radial を px.colors.sequential に修正
+                # 💡 px.colors.sequential.Neon（誤）を px.colors.sequential.Electric（正）に修正
                 fig_pie_typ = px.pie(typ_share, values="BATTLES_COUNT", names="_SHIP_TYPE", hole=0.4, title="艦種別 戦闘数シェア",
-                                     color_discrete_sequence=px.colors.sequential.Neon)
+                                     color_discrete_sequence=px.colors.sequential.Electric)
                 fig_pie_typ.update_layout(template="plotly_dark", paper_bgcolor="#070d14")
                 st.plotly_chart(fig_pie_typ, use_container_width=True)
                 
