@@ -334,24 +334,22 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得：日付を評価して最新行を抽出する決定版
-    clan_tag = "未所属"
+    # 強制デバッグ：全行の日時とクラン名をそのまま表示する
     if not data["clans"].empty:
         df = data["clans"].copy()
-        
-        # 1. CREATED_ATを確実に日時型へ変換
         df['dt_created'] = pd.to_datetime(df['CREATED_AT'], errors='coerce')
         
-        # 2. 日時データが正しく変換できた行だけに絞る
-        valid_rows = df.dropna(subset=['dt_created'])
+        # デバッグ：全データをソートして表示
+        st.write("--- Clans データ検証 ---")
+        sorted_df = df.sort_values(by='dt_created', ascending=False)
+        st.dataframe(sorted_df[['dt_created', 'CLAN_NAME', 'OPERATION_NAME']])
         
-        if not valid_rows.empty:
-            # 3. 日時(dt_created)が最大（最新）の行を取得
-            latest_row = valid_rows.loc[valid_rows['dt_created'].idxmax()]
-            
-            # 4. CLAN_NAME を取得
-            if pd.notna(latest_row['CLAN_NAME']):
-                clan_tag = str(latest_row['CLAN_NAME']).strip()
+        # ロジックの現在地を確認
+        latest_row = sorted_df.iloc[0]
+        clan_tag = str(latest_row['CLAN_NAME']).strip()
+        st.write(f"判定されたクラン: {clan_tag}")
+    else:
+        st.write("Clansデータが空です")
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
