@@ -226,18 +226,19 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
         "avg_xp": (float(df['EXP'].sum() if 'EXP' in df.columns else 0) / b)
     }
     def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
-    b = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
-    if b <= 0:
-        return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
-    d = b - float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum())
-    return {
-        "battles": int(b), "win_rate": max(0.0, min(100.0, (float(df_new['WINS'].sum() - df_old['WINS'].sum()) / b * 100))),
-        "survived_rate": max(0.0, min(100.0, (float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum()) / b * 100))),
-        "avg_damage": max(0.0, float(df_new['DAMAGE_DEALT'].sum() - df_old['DAMAGE_DEALT'].sum()) / b),
-        "kd": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / (1.0 if d <= 0 else d)),
-        "avg_frags": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / b),
-        "avg_xp": max(0.0, float(df_new['EXP'].sum() - df_old['EXP'].sum()) / b)
-    }
+        # 💡 関数の中身（ここから下）がスペース4つ分正しくインデントされている必要があります
+        b = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
+        if b <= 0:
+            return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
+        d = b - float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum())
+        return {
+             "battles": int(b), "win_rate": max(0.0, min(100.0, (float(df_new['WINS'].sum() - df_old['WINS'].sum()) / b * 100))),
+             "survived_rate": max(0.0, min(100.0, (float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum()) / b * 100))),
+             "avg_damage": max(0.0, float(df_new['DAMAGE_DEALT'].sum() - df_old['DAMAGE_DEALT'].sum()) / b),
+             "kd": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / (1.0 if d <= 0 else d)),
+             "avg_frags": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / b),
+             "avg_xp": max(0.0, float(df_new['EXP'].sum() - df_old['EXP'].sum()) / b)
+        }
 
 # ==========================================
 # 4. メインアプリケーション
