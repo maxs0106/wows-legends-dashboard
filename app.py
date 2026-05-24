@@ -205,6 +205,14 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
     return pd.to_datetime(date.today())
 
 def extract_zip_data(uploaded_files):
+    raw_data, success_zips, errors = extract_zip_data(uploaded_files)
+    
+    # 【追加】ここが一番重要です！
+    st.write("--- 読み込まれたデータのキー一覧 ---")
+    st.write(list(raw_data.keys()))
+    
+    # もしここに 'clans' や 'account_stats' が入っていなければ、読み込みロジックが合っていません
+    
     data = {}
     for uploaded_file in uploaded_files:
         bytes_data = uploaded_file.getvalue()
