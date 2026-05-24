@@ -175,34 +175,34 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     tier = (int(tier_match.group()) // 100) if tier_match and int(tier_match.group()) >= 100 else (int(tier_match.group()) if tier_match else 7)
     return nation, ship_class, tier, display_name
 
-def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
-    matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
-    if matches:
-        return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
-        
-    matches_no_dash = re.findall(r'\d{8}', file_name)
-    if matches_no_dash:
-        try:
-            return pd.to_datetime(datetime.strptime(matches_no_dash[0], '%Y%m%d').date())
-        except ValueError:
-            pass
+def merge_and_optimize(raw_data):
+    # raw_dataが辞書であることを前提として、リストを作成
+    dfs = []
+    
+    # 辞書の中身がデータフレームかどうかを厳密にチェック
+    for key, df in raw_data.items():
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            # 必要なカラムが含まれているか確認してからリストに追加
+            if '_SNAPSHOT_DATE' in df.columns:
+                dfs.append(df)
+            else:
+                # 日付カラムがない場合、とりあえずそのまま追加するかスキップ
+                dfs.append(df)
+    
+    # リストが空の場合はエラーを避けて空のDataFrameを返す
+    if not dfs:
+        return pd.DataFrame()
 
-    target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
-    for col in target_columns:
-        if col in df.columns and not df.empty:
-            valid_series = pd.to_numeric(df[col], errors='coerce').dropna()
-            if not valid_series.empty:
-                max_timestamp = valid_series.max()
-                if max_timestamp > 1000000000:
-                    return pd.to_datetime(datetime.fromtimestamp(max_timestamp).date())
-            
-            string_series = df[col].astype(str).str.strip().dropna()
-            string_series = string_series[string_series.str.match(r'^\d{4}-\d{2}-\d{2}')]
-            if not string_series.empty:
-                max_str = string_series.max()
-                return pd.to_datetime(datetime.strptime(max_str[:10], '%Y-%m-%d').date())
-
-    return pd.to_datetime(date.today())
+    # 連結処理
+    try:
+        df_concat = pd.concat(dfs, ignore_index=True)
+        # '_SNAPSHOT_DATE' がある場合のみソートする
+        if '_SNAPSHOT_DATE' in df_concat.columns:
+            df_concat = df_concat.sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
+        return df_concat
+    except Exception as e:
+        st.error(f"連結エラー: {e}")
+        return pd.DataFrame()
 
 def extract_zip_data(uploaded_files):
     """
