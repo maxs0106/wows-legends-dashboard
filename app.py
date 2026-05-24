@@ -148,7 +148,7 @@ IMAGE_NATION_MAP = {"a": "米国", "b": "英国", "f": "仏国", "g": "独国", 
 IMAGE_CLASS_MAP = {"a": "空母", "b": "戦艦", "c": "巡洋艦", "d": "駆逐艦"}
 
 # ==========================================
-# 3. データ処理エンジン
+# 3. データ処理エンジン（関数群）
 # ==========================================
 def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     if not isinstance(vehicle_name, str) or len(vehicle_name) < 4:
@@ -225,23 +225,23 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
         "avg_frags": (float(df['FRAGS'].sum() if 'FRAGS' in df.columns else 0) / b),
         "avg_xp": (float(df['EXP'].sum() if 'EXP' in df.columns else 0) / b)
     }
-    def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
-        # 💡 関数の中身（ここから下）がスペース4つ分正しくインデントされている必要があります
-        b = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
-        if b <= 0:
-            return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
-        d = b - float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum())
-        return {
-             "battles": int(b), "win_rate": max(0.0, min(100.0, (float(df_new['WINS'].sum() - df_old['WINS'].sum()) / b * 100))),
-             "survived_rate": max(0.0, min(100.0, (float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum()) / b * 100))),
-             "avg_damage": max(0.0, float(df_new['DAMAGE_DEALT'].sum() - df_old['DAMAGE_DEALT'].sum()) / b),
-             "kd": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / (1.0 if d <= 0 else d)),
-             "avg_frags": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / b),
-             "avg_xp": max(0.0, float(df_new['EXP'].sum() - df_old['EXP'].sum()) / b)
-        }
+
+def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
+    b = float(df_new['BATTLES_COUNT'].sum() - df_old['BATTLES_COUNT'].sum())
+    if b <= 0:
+        return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
+    d = b - float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum())
+    return {
+        "battles": int(b), "win_rate": max(0.0, min(100.0, (float(df_new['WINS'].sum() - df_old['WINS'].sum()) / b * 100))),
+        "survived_rate": max(0.0, min(100.0, (float(df_new['SURVIVED'].sum() - df_old['SURVIVED'].sum()) / b * 100))),
+        "avg_damage": max(0.0, float(df_new['DAMAGE_DEALT'].sum() - df_old['DAMAGE_DEALT'].sum()) / b),
+        "kd": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / (1.0 if d <= 0 else d)),
+        "avg_frags": max(0.0, float(df_new['FRAGS'].sum() - df_old['FRAGS'].sum()) / b),
+        "avg_xp": max(0.0, float(df_new['EXP'].sum() - df_old['EXP'].sum()) / b)
+    }
 
 # ==========================================
-# 4. メインアプリケーション
+# 4. メインアプリケーションルーチン
 # ==========================================
 def main():
     st.sidebar.header("データインポート")
@@ -276,20 +276,20 @@ def main():
         data["ship_stats"] = ship_df
 
     # ------------------------------------------
-    # ⚓ 【バグ修正】プレイヤー名・クラン名の高精度抽出ロジック
+    # ⚓ プレイヤー名・クラン名の高精度抽出ロジック（バグ完全修正）
     # ------------------------------------------
-    clan_tag, clan_name, p_name, p_id = "---", "クラン未所属", "戦術生還者 (Player)", "xxxxxxxx"
+    clan_tag, clan_name, p_name, p_id = "---", "クラン未所属", "プレイヤーデータ", "xxxxxxxx"
     
-    # 1. Account_Info からの抽出をトライ
+    # 1. Account_Info からの抽出
     if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
         if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
         if 'ACCOUNT_ID' in l_info.index and pd.notna(l_info['ACCOUNT_ID']): p_id = str(l_info['ACCOUNT_ID'])
         
-    # 2. 【フォールバック不具合修正】Account_Infoが空でもAccount_Statsのインジケータから抽出を試みる
-    if (p_name == "戦術生還者 (Player)" or p_id == "xxxxxxxx") and not data["account_stats"].empty:
+    # 2. Account_Stats からの抽出（超堅牢フォールバック）
+    if (p_name == "プレイヤーデータ" or p_id == "xxxxxxxx") and not data["account_stats"].empty:
         l_stats = data["account_stats"].iloc[-1]
-        for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME']:
+        for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
             if name_col in l_stats.index and pd.notna(l_stats[name_col]):
                 p_name = str(l_stats[name_col])
                 break
@@ -324,7 +324,6 @@ def main():
     with t_summary:
         bt_df = data["battle_types"]
         
-        # 部隊形式とモードのセッション状態管理
         if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
         current_mode = st.session_state.sel_mode
 
@@ -338,7 +337,6 @@ def main():
                     st.session_state.sel_mode = m_name
                     st.rerun()
 
-        # 中身が空でもボタンをスキップさせず、マスター定義から完全固定表示
         BATTLE_TYPE_MAP = {
             1: {"mode": "通常", "team": "総合"}, 2: {"mode": "AI", "team": "総合"},
             3: {"mode": "通常", "team": "ソロ"}, 4: {"mode": "通常", "team": "2人分隊"},
@@ -348,7 +346,7 @@ def main():
         team_order = ["総合", "ソロ", "2人分隊", "3人分隊"]
         
         actual_teams = [t for t in team_order if any(m["mode"] == current_mode and m["team"] == t for m in BATTLE_TYPE_MAP.values())]
-        if not actual_teams: actual_teams = ["総合", "ソロ", "2人分隊", "3人分隊"]  # フォールバック安全策
+        if not actual_teams: actual_teams = ["総合", "ソロ", "2人分隊", "3人分隊"]
 
         if 'sel_team' not in st.session_state or st.session_state.sel_team not in actual_teams:
             st.session_state.sel_team = actual_teams[0]
@@ -362,7 +360,6 @@ def main():
                     st.session_state.sel_team = t_name
                     st.rerun()
 
-        # 現在のマトリクス表示用ターゲットコード
         target_type_code = 1
         for tid, meta in BATTLE_TYPE_MAP.items():
             if meta["mode"] == st.session_state.sel_mode and meta["team"] == st.session_state.sel_team:
@@ -413,15 +410,12 @@ def main():
         html_table += '</tbody></table></div>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-
         # ====================================================================
-        # 📈 刷新ポイント1: 通常戦(TYPE 1)の総合データに基づいた、アップロード日程対応の3連グラフ
+        # 📈 通常戦(TYPE 1) 3軸線グラフ
         # ====================================================================
         st.markdown('<div class="chart-section-title">📈 通常戦（総合データ）日程別推移トレンド</div>', unsafe_allow_html=True)
         
-        # 通常戦総合(TYPE 1)の全履歴を抽出
         normal_total_bt = bt_df[bt_df['TYPE'] == 1] if not bt_df.empty else pd.DataFrame()
-        
         trend_records = []
         if not normal_total_bt.empty:
             for d in unique_dates:
@@ -460,16 +454,14 @@ def main():
         else:
             st.info("トレンドグラフ用データが見つかりません。")
 
-
         # ====================================================================
-        # 🚢 刷新ポイント2: 通常戦(TYPE 1)の国家別、艦種別戦闘数グラフ（画像スタイル再現）
+        # 🚢 通常戦(TYPE 1) 国家・艦種戦闘数分布（スタイリッシュな横棒型）
         # ====================================================================
         st.markdown('<div class="chart-section-title">📊 通常戦（総合データ）国籍・艦種戦闘数分布</div>', unsafe_allow_html=True)
         
         normal_ship_df = ship_df[ship_df['TYPE'] == 1] if not ship_df.empty else pd.DataFrame()
         
         if not normal_ship_df.empty:
-            # 最新の記録日付データを取得して集計ベースとする
             l_date = normal_ship_df['_SNAPSHOT_DATE'].max()
             l_ships_latest = normal_ship_df[normal_ship_df['_SNAPSHOT_DATE'] == l_date]
             
@@ -482,8 +474,7 @@ def main():
                 f_nat_bar.update_traces(marker_color="#00f2fe", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
                 f_nat_bar.update_layout(
                     template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14",
-                    xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title="")
-                )
+                    xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
                 st.plotly_chart(f_nat_bar, use_container_width=True)
                 
             with sc2:
@@ -493,14 +484,13 @@ def main():
                 f_typ_bar.update_traces(marker_color="#38bdf8", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
                 f_typ_bar.update_layout(
                     template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14",
-                    xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title="")
-                )
+                    xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
                 st.plotly_chart(f_typ_bar, use_container_width=True)
         else:
             st.info("国家・艦種詳細グラフを構築するためのスナップショットデータがありません。")
 
     # ------------------------------------------
-    # Tab 2~6: 各種アナリティクスデータ（既存互換・安定稼働仕様）
+    # Tab 2~6: 各種アナリティクスデータ
     # ------------------------------------------
     with t_nation:
         if not mode_filtered_ship_df.empty:
