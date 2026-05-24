@@ -336,25 +336,20 @@ def main():
                 
     # クラン名取得の修正：CLAN_NAME列を直接指定し、CREATED_ATで最新行を特定
     clan_tag = None
-
-    # 1. Account_Info.csv から取得（最も信頼できる）
-    if not data["account_info"].empty:
-        row = data["account_info"].sort_values("_SNAPSHOT_DATE").iloc[-1]
-        for col in ["CLAN_TAG", "CLAN_NAME"]:
-            if col in row.index and pd.notna(row[col]) and str(row[col]).strip() != "":
-                clan_tag = str(row[col]).strip()
-                break
-    
-    # 2. それでも無ければ Clans.csv を fallback として使う
-    if clan_tag is None and not data["clans"].empty:
+    if not data["clans"].empty:
         clan_df = data["clans"].copy()
+        
+        # 1. 'CREATED_AT' 列があればそれを数値化してソートの基準にする
+        #    なければスナップショット日付（_SNAPSHOT_DATE）を基準にする
         sort_col = 'CREATED_AT' if 'CREATED_AT' in clan_df.columns else '_SNAPSHOT_DATE'
         clan_df[sort_col] = pd.to_numeric(clan_df[sort_col], errors='coerce')
+        
+        # 2. 最新の1行を取得
         latest_row = clan_df.sort_values(by=sort_col, ascending=False).iloc[0]
-        for col in ["CLAN_TAG", "CLAN_NAME"]:
-            if col in latest_row.index and pd.notna(latest_row[col]):
-                clan_tag = str(latest_row[col]).strip()
-                break
+        
+        # 3. 'CLAN_NAME' 列から直接取得
+        if 'CLAN_NAME' in latest_row.index and pd.notna(latest_row['CLAN_NAME']):
+            clan_tag = str(latest_row['CLAN_NAME']).strip()
 
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
