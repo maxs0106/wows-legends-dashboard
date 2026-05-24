@@ -249,7 +249,8 @@ def extract_zip_data(uploaded_files):
 def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
     merged: Dict[str, pd.DataFrame] = {}
     for key, dfs in raw_data.items():
-        if not dfs:
+        if dfs is None or dfs.empty:
+        return pd.DataFrame()
             merged[key] = pd.DataFrame()
             continue
         df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
