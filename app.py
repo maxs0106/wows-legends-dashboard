@@ -367,7 +367,12 @@ def main():
     t_summary, t_nation, t_type, t_ship, t_best, t_clan = st.tabs([
         "総合戦績 (マトリクス)", "国家別分析", "艦種別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
     ])
-
+    # --- デバッグ用出力 ---
+    st.write("### [DEBUG] 読み込み済みカラムの確認")
+    st.write("Clansカラム:", data["clans"].columns.tolist())
+    st.write("AccountStatsカラム:", data["account_stats"].columns.tolist())
+    # ---------------------
+        
     # ------------------------------------------
     # Tab 1: 総合戦績
     # ------------------------------------------
