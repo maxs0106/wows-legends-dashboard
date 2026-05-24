@@ -334,31 +334,32 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名のデバッグ表示
-    st.write("--- クラン名デバッグ ---")
-    clan_tag = "取得不可"
+    # クラン名取得の再修正：最新かつ有効な操作履歴から取得
+    clan_tag = "未所属"
     if not data["clans"].empty:
-        df_clan = data["clans"].copy()
+        clan_df = data["clans"].copy()
         
-        # 全データの日付順ソート
-        sort_col = 'CREATED_AT' if 'CREATED_AT' in df_clan.columns else '_SNAPSHOT_DATE'
-        df_clan[sort_col] = pd.to_numeric(df_clan[sort_col], errors='coerce')
-        latest_row = df_clan.sort_values(by=sort_col, ascending=False).iloc[0]
+        # 1. タイムスタンプが有効でない場合でも、_SNAPSHOT_DATE で最新を探す
+        latest_date = clan_df['_SNAPSHOT_DATE'].max()
         
-        # デバッグ：データの中身を全表示
-        st.write("最新行の全データ:", latest_row.to_dict())
+        # 2. 最新日付のデータの中で、'join_clan' や 'change_role' など
+        #    クランに属していることを示す操作が行われている行を探す
+        valid_rows = clan_df[
+            (clan_df['_SNAPSHOT_DATE'] == latest_date) & 
+            (clan_df['OPERATION_NAME'].isin(['join_clan', 'change_role', 'clan_member_status']))
+        ]
         
-        # CLAN_NAME の確認
-        val = latest_row.get('CLAN_NAME')
-        st.write("CLAN_NAME列の値:", val)
-        
-        if pd.notna(val) and str(val).strip() != "":
-            clan_tag = str(val).strip()
-    else:
-        st.write("Clansデータ自体が空です")
-    
-    st.write("決定されたクランタグ:", clan_tag)
-    st.write("-----------------------")
+        # 3. それでも取れない場合は、最新日付の全行からCLAN_NAMEが空でないものを探す
+        if valid_rows.empty:
+            valid_rows = clan_df[
+                (clan_df['_SNAPSHOT_DATE'] == latest_date) & 
+                (pd.notna(clan_df['CLAN_NAME'])) & 
+                (clan_df['CLAN_NAME'] != "dOwOb") # 誤った情報を排除
+            ]
+            
+        if not valid_rows.empty:
+            # 最新の行を採用
+            clan_tag = str(valid_rows.iloc[-1]['CLAN_NAME']).strip()
 
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
