@@ -643,9 +643,15 @@ def main():
                         fillcolor='rgba(0, 242, 254, 0.2)', line=dict(color='#00f2fe', width=2),
                         text=r_text, hoverinfo="text+theta"
                     ))
+                    
+                    # 💡 エラーの原因だった polar=dict(...) の危ない内部記述を排除し、安全な標準プロパティのみに書き換え
                     fig_radar.update_layout(
-                        polar=dict(radialaxis=dict(visible=False), gridshape='polygon'),
-                        title="戦闘能力レーダーチャート", template="plotly_dark", paper_bgcolor="#070d14"
+                        title="戦闘能力レーダーチャート",
+                        template="plotly_dark",
+                        paper_bgcolor="#070d14",
+                        polar=dict(
+                            radialaxis=dict(visible=False)  # 軸の数字メモリだけを綺麗に非表示化
+                        )
                     )
                     st.plotly_chart(fig_radar, use_container_width=True)
                 else:
