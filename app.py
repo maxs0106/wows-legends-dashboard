@@ -246,20 +246,34 @@ def extract_zip_data(uploaded_files):
             
     return data, success_zips, errors
 
-def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
-    merged: Dict[str, pd.DataFrame] = {}
-    for key, dfs in raw_data.items():
-        if dfs is None or dfs.empty:
-            return pd.DataFrame()
-            merged[key] = pd.DataFrame()
-            continue
-        df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
-        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
-        id_cols = ['_SNAPSHOT_DATE']
-        if key == 'battle_types': id_cols.append('TYPE')
-        if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
-        merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
-    return merged
+def merge_and_optimize(raw_data):
+    # 1. 辞書の値（DataFrame）をリストに抽出する
+    # raw_data.values() は dict_values オブジェクトなので list() で囲む
+    dfs = list(raw_data.values())
+    
+    # 2. リストの中身が空、またはNoneの場合は空のDataFrameを返す
+    if not dfs:
+        return pd.DataFrame()
+
+    # 3. リストの中身をすべて確認し、DataFrameのみを抽出（念のためのガード）
+    valid_dfs = [df for df in dfs if isinstance(df, pd.DataFrame) and not df.empty]
+    
+    if not valid_dfs:
+        return pd.DataFrame()
+
+    # 4. 連結処理
+    # ここでエラーが出る場合は valid_dfs がリストであることを再確認
+    try:
+        df_concat = pd.concat(valid_dfs, ignore_index=True)
+        
+        # 5. カラムが存在する場合のみソート
+        if '_SNAPSHOT_DATE' in df_concat.columns:
+            df_concat = df_concat.sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
+            
+        return df_concat
+    except Exception as e:
+        st.error(f"連結中に予期せぬエラーが発生しました: {e}")
+        return pd.DataFrame()
 
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty or 'BATTLES_COUNT' not in df.columns or df['BATTLES_COUNT'].sum() <= 0:
