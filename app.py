@@ -56,17 +56,6 @@ CSS_STYLE = """
         color: #ffffff;
         font-weight: 700;
     }
-    .clan-tag-highlight {
-        color: #00f2fe;
-        font-weight: 800;
-        margin-right: 4px;
-    }
-    .player-id-sub {
-        font-size: 0.9rem;
-        color: #64748b;
-        margin-top: 5px;
-        font-family: 'Courier New', monospace;
-    }
 
     /* 📊 総合戦績表：横スクロール・列固定 */
     .matrix-scroll-wrapper {
@@ -277,28 +266,23 @@ def main():
         data["ship_stats"] = ship_df
 
     # ------------------------------------------
-    # ⚓ プレイヤー名・クラン名の抽出ロジック（バグ完全修正＆表示形式アップデート）
+    # ⚓ プレイヤー名・クラン名の抽出ロジック
     # ------------------------------------------
-    clan_tag, p_name, p_id = None, "プレイヤーデータ", "xxxxxxxx"
+    clan_tag, p_name = None, "プレイヤーデータ"
     
     # 1. Account_Info / Account_Stats からの抽出
     if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
         if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
-        if 'ACCOUNT_ID' in l_info.index and pd.notna(l_info['ACCOUNT_ID']): p_id = str(l_info['ACCOUNT_ID'])
         
-    if (p_name == "プレイヤーデータ" or p_id == "xxxxxxxx") and not data["account_stats"].empty:
+    if p_name == "プレイヤーデータ" and not data["account_stats"].empty:
         l_stats = data["account_stats"].iloc[-1]
         for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
             if name_col in l_stats.index and pd.notna(l_stats[name_col]):
                 p_name = str(l_stats[name_col])
                 break
-        for id_col in ['ACCOUNT_ID', 'PLAYER_ID', 'ID']:
-            if id_col in l_stats.index and pd.notna(l_stats[id_col]):
-                p_id = str(l_stats[id_col])
-                break
                 
-    # 2. クランデータの抽出（複数のカラムパターンに対応）
+    # 2. クランデータの抽出
     if not data["clans"].empty:
         l_clan = data["clans"].iloc[-1]
         for tag_col in ['TAG', 'CLAN_TAG', 'SHORT_NAME', 'CLAN_SHORT_NAME']:
@@ -306,16 +290,16 @@ def main():
                 clan_tag = str(l_clan[tag_col]).strip()
                 break
 
-    # 表示名構築: クランがあれば 【クラン名】プレイヤー名 の形式へ
+    # 表示名構築: 【クラン名】プレイヤー名 の形式へ
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
+    # 💡 ACCOUNT CODEの行を完全に削除
     header_html = f"""
     <div class="game-header-container">
         <div class="game-title">WOWSL Legends Dashboard</div>
         <div class="player-clan-info">
             {player_display_string}
         </div>
-        <div class="player-id-sub">ACCOUNT CODE: {p_id}</div>
     </div>
     """
     st.markdown(header_html, unsafe_allow_html=True)
@@ -383,7 +367,7 @@ def main():
             global_kpi = calc_metrics_from_row(pd.DataFrame())
         matrix_columns["全期間"] = global_kpi
 
-        # 【バグ修正】期間データが間引かれず綺麗に連続するように構築
+        # 💡 【バグ修正】各期間のスナップショット日付を完全に分離抽出して独立計算
         period_keys = []
         if len(unique_dates) > 1:
             for i in range(len(unique_dates) - 1, 0, -1):
@@ -391,10 +375,14 @@ def main():
                 period_label = f"{d_start.strftime('%Y/%m/%d')}<br>～ {d_end.strftime('%Y/%m/%d')}"
                 period_keys.append(period_label)
                 
-                df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_end] if not mode_bt_df.empty else pd.DataFrame()
-                df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d_start] if not mode_bt_df.empty else pd.DataFrame()
+                # 完全に独立した単一スナップショット行だけを取得（他ファイルが混ざらないよう厳密に等価判定）
+                df_end_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == pd.to_datetime(d_end)] if not mode_bt_df.empty else pd.DataFrame()
+                df_start_snap = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == pd.to_datetime(d_start)] if not mode_bt_df.empty else pd.DataFrame()
                 
-                matrix_columns[period_label] = calc_period_diff_metrics(df_end_snap, df_start_snap) if not df_end_snap.empty and not df_start_snap.empty else calc_metrics_from_row(pd.DataFrame())
+                if not df_end_snap.empty and not df_start_snap.empty:
+                    matrix_columns[period_label] = calc_period_diff_metrics(df_end_snap, df_start_snap)
+                else:
+                    matrix_columns[period_label] = calc_metrics_from_row(pd.DataFrame())
 
         row_indicators = [
             ("戦闘", "battles", "{:,}"), ("勝率", "win_rate", "{:.2f}%"),
@@ -426,7 +414,7 @@ def main():
         trend_records = []
         if not normal_total_bt.empty:
             for d in unique_dates:
-                snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == d]
+                snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == pd.to_datetime(d)]
                 if not snap_df.empty:
                     kpi = calc_metrics_from_row(snap_df)
                     if kpi["battles"] is not None:
@@ -462,7 +450,7 @@ def main():
             st.info("トレンドグラフ用データが見つかりません。")
 
         # ====================================================================
-        # 🚢 通常戦(TYPE 1) 国家・艦種戦闘数分布（画像スタイル再現）
+        # 🚢 通常戦(TYPE 1) 国家・艦種戦闘数分布
         # ====================================================================
         st.markdown('<div class="chart-section-title">📊 通常戦（総合データ）国籍・艦種戦闘数分布</div>', unsafe_allow_html=True)
         
