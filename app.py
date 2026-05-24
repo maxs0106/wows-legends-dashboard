@@ -334,25 +334,30 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # クラン名取得：汎用的な最新データ抽出ロジック
+    # クラン名取得：日時文字列を厳密に解析して最新行を抽出
     clan_tag = "未所属"
     if not data["clans"].empty:
         clan_df = data["clans"].copy()
         
-        # 1. すべての行から「最も新しいスナップショット日付」を特定
-        latest_date = clan_df['_SNAPSHOT_DATE'].max()
+        # 1. CREATED_AT を日時型(datetime)に変換 (失敗した行は NaT になる)
+        if 'CREATED_AT' in clan_df.columns:
+            clan_df['dt_created'] = pd.to_datetime(clan_df['CREATED_AT'], errors='coerce')
+        else:
+            clan_df['dt_created'] = pd.NaT
+            
+        # 2. CREATED_AT がない場合は _SNAPSHOT_DATE を日時型で補完
+        mask = clan_df['dt_created'].isna()
+        if mask.any():
+            clan_df.loc[mask, 'dt_created'] = pd.to_datetime(clan_df.loc[mask, '_SNAPSHOT_DATE'], errors='coerce')
+            
+        # 3. 最も新しい日時を持つ行のインデックスを取得
+        latest_idx = clan_df['dt_created'].idxmax()
+        latest_row = clan_df.loc[latest_idx]
         
-        # 2. 最新日付のデータのみに絞り込み
-        latest_rows = clan_df[clan_df['_SNAPSHOT_DATE'] == latest_date]
-        
-        # 3. CLAN_NAME が存在し、かつ空っぽではない（NaNではない）ものを探す
-        #    もし複数行あっても、最後の行（最も新しい操作）を採用
-        valid_rows = latest_rows[pd.notna(latest_rows['CLAN_NAME']) & (latest_rows['CLAN_NAME'] != "")]
-        
-        if not valid_rows.empty:
-            # 汎用的に一番下の行（＝最新のデータ）を取得
-            clan_tag = str(valid_rows.iloc[-1]['CLAN_NAME']).strip()
-
+        # 4. CLAN_NAME が有効か確認して取得
+        val = latest_row.get('CLAN_NAME')
+        if pd.notna(val) and str(val).strip() != "":
+            clan_tag = str(val).strip()
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
