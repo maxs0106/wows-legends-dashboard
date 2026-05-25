@@ -203,6 +203,7 @@ def extract_zip_data(uploaded_files):
         'clans.csv': 'clans',
         'wowsl_account_statistics.csv': 'account_stats',
         'wowsl_ship_statistics.csv': 'ship_stats'
+        'battle_types.csv': 'battle_types' 
     }
 
     for uploaded_file in uploaded_files:
@@ -285,11 +286,6 @@ def main():
     if not isinstance(data, dict) or len(data) == 0:
         st.error("データの読み込みに失敗したか、ファイル形式が適合していません。")
         return
-
-    # データの読み込み直後に追加
-    st.write("--- 読み込まれた列名一覧 ---")
-    for key, df in data.items():
-        st.write(f"キー: {key}, 列名: {list(df.columns)}")
     
     # --- 日付取得 ---
     # --- 日付取得処理の修正 ---
