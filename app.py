@@ -287,9 +287,9 @@ def main():
         return
 
     # データの読み込み直後に追加
-st.write("--- 読み込まれた列名一覧 ---")
-for key, df in data.items():
-    st.write(f"キー: {key}, 列名: {list(df.columns)}")
+    st.write("--- 読み込まれた列名一覧 ---")
+    for key, df in data.items():
+        st.write(f"キー: {key}, 列名: {list(df.columns)}")
     
     # --- 日付取得 ---
     all_dates = []
