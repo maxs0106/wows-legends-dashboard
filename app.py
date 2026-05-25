@@ -423,7 +423,21 @@ def main():
         mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty else pd.DataFrame()
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty else pd.DataFrame()
 
+        # matrix_columns を空で作った直後に以下を追加
         matrix_columns = {}
+        
+        # --- 全期間のKPIを計算して格納 ---
+        if "account_stats" in data and not data["account_stats"].empty:
+            # 既存の calc_metrics_from_row 関数を利用
+            all_time_kpi = calc_metrics_from_row(data["account_stats"])
+            matrix_columns["全期間"] = all_time_kpi
+        else:
+            # データがない場合は空の辞書を入れる（KeyErrorを防ぐため）
+            matrix_columns["全期間"] = {
+                "battles": 0, "win_rate": 0, "survived_rate": 0, 
+                "avg_damage": 0, "kd": 0, "avg_frags": 0, "avg_xp": 0
+            }
+            
         # 修正前:
         # global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
         
