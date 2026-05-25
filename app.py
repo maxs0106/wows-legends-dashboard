@@ -313,10 +313,7 @@ def main():
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
     data = merge_and_optimize(raw_data) # ★ここを data と定義し直すか、一貫して同じ名前を使う
     
-    # 以下、すべて data という変数名で統一します
-    if not isinstance(data, dict):
-        st.error("データの形式が不正です。")
-        return
+   
         
     if data is None:
         st.error("データの最適化に失敗しました。ファイルの中身が正しいか確認してください。")
