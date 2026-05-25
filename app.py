@@ -306,20 +306,26 @@ def main():
     uploaded_files = st.sidebar.file_uploader("ZIPデータダンプ投入", type="zip", accept_multiple_files=True)
     
     if not uploaded_files:
-        st.info("サイドバーから個人データZIPファイルを複数アップロードしてください。")
+        st.info("サイドバーからZIPファイルをアップロードしてください。")
         return
 
-    # 1. raw_data(辞書) を取得し、それを最適化して loaded_data(辞書) に変換
-    raw_data, success_zips, errors = extract_zip_data(uploaded_files)
-    data = merge_and_optimize(raw_data) # ★ここを data と定義し直すか、一貫して同じ名前を使う
+    # 1. raw_dataを取得
+    raw_data, _, _ = extract_zip_data(uploaded_files)
     
-   
-        
-    if data is None:
-        st.error("データの最適化に失敗しました。ファイルの中身が正しいか確認してください。")
-        # 診断情報を詳細に表示
-        st.write("raw_dataの内容:", raw_data)
+    # 2. 強制的に辞書であることを確認する処理
+    if not isinstance(raw_data, dict):
+        st.error(f"致命的エラー: 読み込まれたデータが辞書型ではありません。型: {type(raw_data)}")
         return
+
+    # 3. 最適化処理
+    data = merge_and_optimize(raw_data)
+    
+    # 4. ここで再度、dataが辞書であることを厳密にチェック
+    if not isinstance(data, dict):
+        st.error(f"致命的エラー: 最適化後のデータが辞書型ではありません。型: {type(data)}")
+        st.write("中身の確認:", data) # どこで壊れたか特定するため
+        return
+
     
     # --- 日付取得 ---
     all_dates = []
