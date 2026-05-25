@@ -176,18 +176,29 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     return nation, ship_class, tier, display_name
 
 def merge_and_optimize(raw_data):
-    # raw_dataは辞書です。各キーごとのDataFrameを最適化して辞書に詰め直す
     optimized_data = {}
     
     for key, df in raw_data.items():
         if isinstance(df, pd.DataFrame) and not df.empty:
-            # 重複削除や型変換の最適化
-            optimized_data[key] = df.drop_duplicates().reset_index(drop=True)
-    
-    # 【重要】もし全てのデータを1つに結合したいのであれば、
-    # 'merged_all' というキーを新設してそこに入れるか、
-    # 辞書として返す必要があります。
-    
+            df = df.drop_duplicates().reset_index(drop=True)
+            
+            # 【重要】日付列の統一処理
+            # CSVにどの列があろうと、プログラムが期待する '_SNAPSHOT_DATE' を必ず作る
+            if '_SNAPSHOT_DATE' not in df.columns:
+                if 'UPDATED_AT' in df.columns:
+                    df['_SNAPSHOT_DATE'] = df['UPDATED_AT']
+                elif 'CREATED_AT' in df.columns:
+                    df['_SNAPSHOT_DATE'] = df['CREATED_AT']
+                elif 'LAST_BATTLE_TIME' in df.columns:
+                    df['_SNAPSHOT_DATE'] = df['LAST_BATTLE_TIME']
+                else:
+                    # どれもなければ仕方ないので空の値や今日の日付で埋める
+                    df['_SNAPSHOT_DATE'] = pd.to_datetime('today')
+            
+            # 日付型に変換
+            df['_SNAPSHOT_DATE'] = pd.to_datetime(df['_SNAPSHOT_DATE'], errors='coerce')
+            optimized_data[key] = df
+            
     return optimized_data
     
 def extract_zip_data(uploaded_files):
