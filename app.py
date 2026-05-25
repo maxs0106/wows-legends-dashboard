@@ -176,28 +176,20 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     return nation, ship_class, tier, display_name
 
 def merge_and_optimize(raw_data):
-    # 診断ログをStreamlitに表示
-    st.write("--- 診断情報 ---")
-    st.write(f"入力データの型: {type(raw_data)}")
-    if isinstance(raw_data, dict):
-        st.write(f"含まれているキー: {list(raw_data.keys())}")
-    
-    # ここから本来の処理
-    if not isinstance(raw_data, dict) or not raw_data:
-        st.error("エラー: 入力データが空、または辞書型ではありません。")
-        return None  # 明示的にNoneを返す
-
-    # 処理の過程でデータフレームを最適化する
+    # raw_dataは辞書です。各キーごとのDataFrameを最適化して辞書に詰め直す
     optimized_data = {}
+    
     for key, df in raw_data.items():
-        if isinstance(df, pd.DataFrame):
-            # 重複削除や型変換などの最適化処理
-            optimized_data[key] = df.drop_duplicates()
-        else:
-            st.warning(f"キー '{key}' のデータはDataFrameではありません。")
-            
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            # 重複削除や型変換の最適化
+            optimized_data[key] = df.drop_duplicates().reset_index(drop=True)
+    
+    # 【重要】もし全てのデータを1つに結合したいのであれば、
+    # 'merged_all' というキーを新設してそこに入れるか、
+    # 辞書として返す必要があります。
+    
     return optimized_data
-
+    
 def extract_zip_data(uploaded_files):
     """
     アップロードされたZIPファイルを展開し、CSVデータを辞書形式で返します。
