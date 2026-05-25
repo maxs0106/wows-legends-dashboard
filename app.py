@@ -413,11 +413,19 @@ def main():
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty else pd.DataFrame()
 
         matrix_columns = {}
-        if not mode_bt_df.empty:
-            global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
+        # 修正前:
+        # global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
+        
+        # 修正後:
+        # 日付列として 'UPDATED_AT' を使用するように変更
+        date_col = 'UPDATED_AT' if 'UPDATED_AT' in mode_bt_df.columns else 'CREATED_AT'
+        
+        if not mode_bt_df.empty and date_col in mode_bt_df.columns:
+            latest_date = mode_bt_df[date_col].max()
+            global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df[date_col] == latest_date])
         else:
-            global_kpi = calc_metrics_from_row(pd.DataFrame())
-        matrix_columns["全期間"] = global_kpi
+        # データがない、または日付列がない場合のフォールバック
+            global_kpi = calc_metrics_from_row(mode_bt_df)
 
         period_keys = []
         if len(unique_dates) > 1:
