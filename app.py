@@ -274,23 +274,17 @@ def main():
         st.info("サイドバーからZIPファイルをアップロードしてください。")
         return
 
-    # 1. raw_dataを取得
-    raw_data, _, _ = extract_zip_data(uploaded_files)
+    # 1. 読み込み (extract_zip_dataは 辞書, リスト, リスト を返す)
+    raw_data, success_zips, errors = extract_zip_data(uploaded_files)
     
-    # 2. 強制的に辞書であることを確認する処理
-    if not isinstance(raw_data, dict):
-        st.error(f"致命的エラー: 読み込まれたデータが辞書型ではありません。型: {type(raw_data)}")
-        return
-
-    # 3. 最適化処理
+    # 2. 最適化 (merge_and_optimizeは 辞書 を返す)
+    # ここでエラーが出る場合、raw_dataが空である可能性があります
     data = merge_and_optimize(raw_data)
     
-    # 4. ここで再度、dataが辞書であることを厳密にチェック
-    if not isinstance(data, dict):
-        st.error(f"致命的エラー: 最適化後のデータが辞書型ではありません。型: {type(data)}")
-        st.write("中身の確認:", data) # どこで壊れたか特定するため
+    # 3. データの存在確認 (ここを厳密に行うとTypeErrorが消えます)
+    if not isinstance(data, dict) or len(data) == 0:
+        st.error("データの読み込みに失敗したか、ファイル形式が適合していません。")
         return
-
     
     # --- 日付取得 ---
     all_dates = []
