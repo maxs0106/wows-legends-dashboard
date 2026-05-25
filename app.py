@@ -176,33 +176,27 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     return nation, ship_class, tier, display_name
 
 def merge_and_optimize(raw_data):
-    # raw_dataが辞書であることを前提として、リストを作成
-    dfs = []
+    # 診断ログをStreamlitに表示
+    st.write("--- 診断情報 ---")
+    st.write(f"入力データの型: {type(raw_data)}")
+    if isinstance(raw_data, dict):
+        st.write(f"含まれているキー: {list(raw_data.keys())}")
     
-    # 辞書の中身がデータフレームかどうかを厳密にチェック
-    for key, df in raw_data.items():
-        if isinstance(df, pd.DataFrame) and not df.empty:
-            # 必要なカラムが含まれているか確認してからリストに追加
-            if '_SNAPSHOT_DATE' in df.columns:
-                dfs.append(df)
-            else:
-                # 日付カラムがない場合、とりあえずそのまま追加するかスキップ
-                dfs.append(df)
-    
-    # リストが空の場合はエラーを避けて空のDataFrameを返す
-    if not dfs:
-        return pd.DataFrame()
+    # ここから本来の処理
+    if not isinstance(raw_data, dict) or not raw_data:
+        st.error("エラー: 入力データが空、または辞書型ではありません。")
+        return None  # 明示的にNoneを返す
 
-    # 連結処理
-    try:
-        df_concat = pd.concat(dfs, ignore_index=True)
-        # '_SNAPSHOT_DATE' がある場合のみソートする
-        if '_SNAPSHOT_DATE' in df_concat.columns:
-            df_concat = df_concat.sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
-        return df_concat
-    except Exception as e:
-        st.error(f"連結エラー: {e}")
-        return pd.DataFrame()
+    # 処理の過程でデータフレームを最適化する
+    optimized_data = {}
+    for key, df in raw_data.items():
+        if isinstance(df, pd.DataFrame):
+            # 重複削除や型変換などの最適化処理
+            optimized_data[key] = df.drop_duplicates()
+        else:
+            st.warning(f"キー '{key}' のデータはDataFrameではありません。")
+            
+    return optimized_data
 
 def extract_zip_data(uploaded_files):
     """
@@ -323,6 +317,12 @@ def main():
     if not isinstance(data, dict):
         st.error("データの形式が不正です。")
         return
+        
+    if data is None:
+    st.error("データの最適化に失敗しました。ファイルの中身が正しいか確認してください。")
+    # 診断情報を詳細に表示
+    st.write("raw_dataの内容:", raw_data)
+    return
     
     # --- 日付取得 ---
     all_dates = []
