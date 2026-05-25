@@ -202,7 +202,7 @@ def extract_zip_data(uploaded_files):
     KEY_MAP = {
         'clans.csv': 'clans',
         'wowsl_account_statistics.csv': 'account_stats',
-        'wowsl_ship_statistics.csv': 'ship_stats',
+        'wowsl_ship_statistics_by_type.csv': 'ship_stats',
         'wowsl_battle_types_statistics.csv': 'battle_types' 
     }
 
