@@ -319,10 +319,10 @@ def main():
         return
         
     if data is None:
-    st.error("データの最適化に失敗しました。ファイルの中身が正しいか確認してください。")
-    # 診断情報を詳細に表示
-    st.write("raw_dataの内容:", raw_data)
-    return
+        st.error("データの最適化に失敗しました。ファイルの中身が正しいか確認してください。")
+        # 診断情報を詳細に表示
+        st.write("raw_dataの内容:", raw_data)
+        return
     
     # --- 日付取得 ---
     all_dates = []
