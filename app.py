@@ -292,16 +292,29 @@ def main():
         st.write(f"キー: {key}, 列名: {list(df.columns)}")
     
     # --- 日付取得 ---
+    # --- 日付取得処理の修正 ---
     all_dates = []
+    
+    # 優先順位: 1. UPDATED_AT (Account Stats), 2. LAST_BATTLE_TIME, 3. CREATED_AT
+    date_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'CREATED_AT']
+    
     for df in data.values():
-        if isinstance(df, pd.DataFrame) and not df.empty and '_SNAPSHOT_DATE' in df.columns:
-            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            for col in date_columns:
+                if col in df.columns:
+                    # UPDATED_ATなどの列から日付を抽出
+                    all_dates.extend(df[col].dropna().unique().tolist())
+                    break # そのデータフレーム内で優先度の高い列が見つかればOK
     
     if not all_dates:
-        st.error("有効な日付データを含むCSVファイルが見つかりません。")
+        st.error("指定された日付列（UPDATED_AT等）が見つかりませんでした。")
         return
         
-    unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
+    # 日付の型変換 (Unixタイムスタンプか文字列か判別して処理)
+    # 必要に応じて pd.to_datetime に unit='s' を追加してください
+    unique_dates = sorted(list(set(pd.to_datetime(all_dates, errors='coerce').dropna())))
+
+    st.write(f"解析対象の期間: {unique_dates[0]} ～ {unique_dates[-1]}")
 
     # --- 艦艇メタデータ解析 ---
     if "ship_stats" in data and not data["ship_stats"].empty:
