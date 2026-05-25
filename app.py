@@ -175,76 +175,87 @@ def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
     tier = (int(tier_match.group()) // 100) if tier_match and int(tier_match.group()) >= 100 else (int(tier_match.group()) if tier_match else 7)
     return nation, ship_class, tier, display_name
 
-def merge_and_optimize(raw_data):
-    optimized_data = {}
-    
-    for key, df in raw_data.items():
-        if isinstance(df, pd.DataFrame) and not df.empty:
-            df = df.drop_duplicates().reset_index(drop=True)
-            
-            # 【重要】日付列の統一処理
-            # CSVにどの列があろうと、プログラムが期待する '_SNAPSHOT_DATE' を必ず作る
-            if '_SNAPSHOT_DATE' not in df.columns:
-                if 'UPDATED_AT' in df.columns:
-                    df['_SNAPSHOT_DATE'] = df['UPDATED_AT']
-                elif 'CREATED_AT' in df.columns:
-                    df['_SNAPSHOT_DATE'] = df['CREATED_AT']
-                elif 'LAST_BATTLE_TIME' in df.columns:
-                    df['_SNAPSHOT_DATE'] = df['LAST_BATTLE_TIME']
-                else:
-                    # どれもなければ仕方ないので空の値や今日の日付で埋める
-                    df['_SNAPSHOT_DATE'] = pd.to_datetime('today')
-            
-            # 日付型に変換
-            df['_SNAPSHOT_DATE'] = pd.to_datetime(df['_SNAPSHOT_DATE'], errors='coerce')
-            optimized_data[key] = df
-            
-    return optimized_data
-    
-def extract_zip_data(uploaded_files):
-    """
-    アップロードされたZIPファイルを展開し、CSVデータを辞書形式で返します。
-    """
-    data = {}
-    success_zips = []
-    errors = []
-    
-    # マッピング辞書：ファイル名の一部をキーに変換
-    KEY_MAP = {
-        'clans.csv': 'clans',
-        'wowsl_account_statistics.csv': 'account_stats',
-        'wowsl_ship_statistics_by_type.csv': 'ship_stats',
-        'wowsl_battle_types_statistics.csv': 'battle_types' 
-    }
-
-    for uploaded_file in uploaded_files:
+def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
+    matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
+    if matches:
+        return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
+        
+    matches_no_dash = re.findall(r'\d{8}', file_name)
+    if matches_no_dash:
         try:
-            # メモリ上でZIPを開く
-            with zipfile.ZipFile(io.BytesIO(uploaded_file.getvalue()), 'r') as z:
-                for filename in z.namelist():
-                    name_lower = filename.lower()
-                    
-                    # ファイル名での判定
-                    key = None
-                    for k, v in KEY_MAP.items():
-                        if k in name_lower:
-                            key = v
-                            break
-                    
-                    if key:
-                        with z.open(filename) as f:
-                            df = pd.read_csv(f)
-                            if key in data:
-                                data[key] = pd.concat([data[key], df], ignore_index=True)
-                            else:
-                                data[key] = df
-            success_zips.append(uploaded_file.name)
-        except Exception as e:
-            errors.append(f"{uploaded_file.name}: {str(e)}")
+            return pd.to_datetime(datetime.strptime(matches_no_dash[0], '%Y%m%d').date())
+        except ValueError:
+            pass
+
+    target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
+    for col in target_columns:
+        if col in df.columns and not df.empty:
+            valid_series = pd.to_numeric(df[col], errors='coerce').dropna()
+            if not valid_series.empty:
+                max_timestamp = valid_series.max()
+                if max_timestamp > 1000000000:
+                    return pd.to_datetime(datetime.fromtimestamp(max_timestamp).date())
             
-    return data, success_zips, errors
+            string_series = df[col].astype(str).str.strip().dropna()
+            string_series = string_series[string_series.str.match(r'^\d{4}-\d{2}-\d{2}')]
+            if not string_series.empty:
+                max_str = string_series.max()
+                return pd.to_datetime(datetime.strptime(max_str[:10], '%Y-%m-%d').date())
 
+    return pd.to_datetime(date.today())
 
+def extract_zip_data(uploaded_files: List[Any]) -> Tuple[Dict[str, List[pd.DataFrame]], List[str], List[str]]:
+    all_data: Dict[str, List[pd.DataFrame]] = {k: [] for k in CSV_MAPPING.values()}
+    success_zips, errors = [], []
+    for up_file in uploaded_files:
+        try:
+            with zipfile.ZipFile(io.BytesIO(up_file.read())) as z:
+                temp_dfs = {}
+                detected_date = None
+                
+                for internal_path in z.namelist():
+                    base_name = os.path.basename(internal_path)
+                    if base_name in CSV_MAPPING:
+                        try:
+                            content = z.open(internal_path).read().decode('utf-8')
+                        except:
+                            content = z.open(internal_path).read().decode('shift_jis')
+                        df = pd.read_csv(io.StringIO(content))
+                        if not df.empty:
+                            df.columns = [c.strip().upper() for c in df.columns]
+                            temp_dfs[CSV_MAPPING[base_name]] = df
+                
+                for key in ["battle_types", "account_stats", "ship_stats"]:
+                    if key in temp_dfs and detected_date is None:
+                        date_candidate = get_snapshot_date(temp_dfs[key], up_file.name)
+                        if date_candidate != pd.to_datetime(date.today()):
+                            detected_date = date_candidate
+                            break
+                            
+                if detected_date is None:
+                    detected_date = get_snapshot_date(pd.DataFrame(), up_file.name)
+                    
+                for key, df in temp_dfs.items():
+                    df['_SNAPSHOT_DATE'] = detected_date
+                    all_data[key].append(df)
+                success_zips.append(f"{up_file.name}")
+        except Exception as e:
+            errors.append(f"{up_file.name}: {str(e)}")
+    return all_data, success_zips, errors
+
+def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.DataFrame]:
+    merged: Dict[str, pd.DataFrame] = {}
+    for key, dfs in raw_data.items():
+        if not dfs:
+            merged[key] = pd.DataFrame()
+            continue
+        df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
+        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
+        id_cols = ['_SNAPSHOT_DATE']
+        if key == 'battle_types': id_cols.append('TYPE')
+        if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
+        merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
+    return merged
 
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty or 'BATTLES_COUNT' not in df.columns or df['BATTLES_COUNT'].sum() <= 0:
@@ -283,49 +294,25 @@ def main():
     uploaded_files = st.sidebar.file_uploader("ZIPデータダンプ投入", type="zip", accept_multiple_files=True)
     
     if not uploaded_files:
-        st.info("サイドバーからZIPファイルをアップロードしてください。")
+        st.info("サイドバーから個人データZIPファイルを複数アップロードしてください。")
         return
 
-    # 1. 読み込み (extract_zip_dataは 辞書, リスト, リスト を返す)
     raw_data, success_zips, errors = extract_zip_data(uploaded_files)
-    
-    # 2. 最適化 (merge_and_optimizeは 辞書 を返す)
-    # ここでエラーが出る場合、raw_dataが空である可能性があります
     data = merge_and_optimize(raw_data)
     
-    # 3. データの存在確認 (ここを厳密に行うとTypeErrorが消えます)
-    if not isinstance(data, dict) or len(data) == 0:
-        st.error("データの読み込みに失敗したか、ファイル形式が適合していません。")
-        return
-    
-    # --- 日付取得 ---
-    # --- 日付取得処理の修正 ---
     all_dates = []
-    
-    # 優先順位: 1. UPDATED_AT (Account Stats), 2. LAST_BATTLE_TIME, 3. CREATED_AT
-    date_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'CREATED_AT']
-    
     for df in data.values():
-        if isinstance(df, pd.DataFrame) and not df.empty:
-            for col in date_columns:
-                if col in df.columns:
-                    # UPDATED_ATなどの列から日付を抽出
-                    all_dates.extend(df[col].dropna().unique().tolist())
-                    break # そのデータフレーム内で優先度の高い列が見つかればOK
+        if not df.empty and '_SNAPSHOT_DATE' in df.columns:
+            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
     
     if not all_dates:
-        st.error("指定された日付列（UPDATED_AT等）が見つかりませんでした。")
+        st.error("有効な日付データを含むCSVファイルが見つかりません。")
         return
         
-    # 日付の型変換 (Unixタイムスタンプか文字列か判別して処理)
-    # 必要に応じて pd.to_datetime に unit='s' を追加してください
-    unique_dates = sorted(list(set(pd.to_datetime(all_dates, errors='coerce').dropna())))
+    unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
 
-    st.write(f"解析対象の期間: {unique_dates[0]} ～ {unique_dates[-1]}")
-
-    # --- 艦艇メタデータ解析 ---
-    if "ship_stats" in data and not data["ship_stats"].empty:
-        ship_df = data["ship_stats"].copy()
+    ship_df = data["ship_stats"]
+    if not ship_df.empty:
         parsed_meta = ship_df['VEHICLE_NAME'].apply(parse_ship_id)
         ship_df['_NATION'] = [x[0] for x in parsed_meta]
         ship_df['_SHIP_TYPE'] = [x[1] for x in parsed_meta]
@@ -333,32 +320,32 @@ def main():
         ship_df['_CLEAN_NAME'] = [x[3] for x in parsed_meta]
         data["ship_stats"] = ship_df
 
-    # --- プレイヤー・クラン名抽出 ---
+    # ⚓ プレイヤー名・クラン名の堅牢な抽出
     clan_tag, p_name = None, "プレイヤーデータ"
     
-    # account_info キーがあるか確認
-    if "account_info" in data and not data["account_info"].empty:
+    if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
-        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): 
-            p_name = str(l_info['NICKNAME'])
+        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
         
-    if p_name == "プレイヤーデータ" and "account_stats" in data and not data["account_stats"].empty:
+    if p_name == "プレイヤーデータ" and not data["account_stats"].empty:
         l_stats = data["account_stats"].iloc[-1]
         for name_col in ['NICKNAME', 'PLAYER_NAME', 'NAME', 'ACCOUNT_NAME']:
             if name_col in l_stats.index and pd.notna(l_stats[name_col]):
                 p_name = str(l_stats[name_col])
                 break
                 
-    if "clans" in data and not data["clans"].empty:
-        clan_df = data["clans"].copy()
-        sort_col = 'CREATED_AT' if 'CREATED_AT' in clan_df.columns else '_SNAPSHOT_DATE'
-        clan_df[sort_col] = pd.to_numeric(clan_df[sort_col], errors='coerce')
-        latest_row = clan_df.sort_values(by=sort_col, ascending=False).iloc[0]
-        if 'CLAN_NAME' in latest_row.index and pd.notna(latest_row['CLAN_NAME']):
-            clan_tag = str(latest_row['CLAN_NAME']).strip()
+    # 💡 クラン名バグの修正: 過去履歴に惑わされず、一番最新日付データからタグを厳選
+    if not data["clans"].empty:
+        latest_clan_df = data["clans"].sort_values(by='_SNAPSHOT_DATE').iloc[-1:]
+        l_clan = latest_clan_df.iloc[0]
+        for col in l_clan.index:
+            if col != '_SNAPSHOT_DATE' and pd.notna(l_clan[col]) and str(l_clan[col]).strip() != "":
+                val_str = str(l_clan[col]).strip()
+                if 2 <= len(val_str) <= 5 and val_str.isalnum():
+                    clan_tag = val_str
+                    break
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
-    # ...以下、HTML表示へ続く
 
     header_html = f"""
     <div class="game-header-container">
@@ -423,34 +410,12 @@ def main():
         mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty else pd.DataFrame()
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty else pd.DataFrame()
 
-        # matrix_columns を空で作った直後に以下を追加
         matrix_columns = {}
-        
-        # --- 全期間のKPIを計算して格納 ---
-        if "account_stats" in data and not data["account_stats"].empty:
-            # 既存の calc_metrics_from_row 関数を利用
-            all_time_kpi = calc_metrics_from_row(data["account_stats"])
-            matrix_columns["全期間"] = all_time_kpi
+        if not mode_bt_df.empty:
+            global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
         else:
-            # データがない場合は空の辞書を入れる（KeyErrorを防ぐため）
-            matrix_columns["全期間"] = {
-                "battles": 0, "win_rate": 0, "survived_rate": 0, 
-                "avg_damage": 0, "kd": 0, "avg_frags": 0, "avg_xp": 0
-            }
-            
-        # 修正前:
-        # global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
-        
-        # 修正後:
-        # 日付列として 'UPDATED_AT' を使用するように変更
-        date_col = 'UPDATED_AT' if 'UPDATED_AT' in mode_bt_df.columns else 'CREATED_AT'
-        
-        if not mode_bt_df.empty and date_col in mode_bt_df.columns:
-            latest_date = mode_bt_df[date_col].max()
-            global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df[date_col] == latest_date])
-        else:
-        # データがない、または日付列がない場合のフォールバック
-            global_kpi = calc_metrics_from_row(mode_bt_df)
+            global_kpi = calc_metrics_from_row(pd.DataFrame())
+        matrix_columns["全期間"] = global_kpi
 
         period_keys = []
         if len(unique_dates) > 1:
