@@ -203,7 +203,7 @@ def extract_zip_data(uploaded_files):
         'clans.csv': 'clans',
         'wowsl_account_statistics.csv': 'account_stats',
         'wowsl_ship_statistics.csv': 'ship_stats',
-        'battle_types.csv': 'battle_types' 
+        'wowsl_battle_types_statistics.csv': 'battle_types' 
     }
 
     for uploaded_file in uploaded_files:
