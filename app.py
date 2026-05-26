@@ -369,7 +369,7 @@ def main():
                             val_str = match.group(1)
                     
                     # 2～5文字の英数字をタグとして採用
-                    if 2 <= len(val_str) <= 8 and val_str.isalnum():
+                    if 2 <= len(val_str) <= 20 and val_str.isalnum():
                         clan_tag = val_str
                         break
 
