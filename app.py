@@ -249,12 +249,21 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
         if not dfs:
             merged[key] = pd.DataFrame()
             continue
-        df_concat = pd.concat(dfs, ignore_index=True).sort_values(by='_SNAPSHOT_DATE').reset_index(drop=True)
-        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
-        id_cols = ['_SNAPSHOT_DATE']
-        if key == 'battle_types': id_cols.append('TYPE')
-        if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
-        merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
+        
+        df_concat = pd.concat(dfs, ignore_index=True)
+        
+        # クランの場合は日付での重複排除を行わない（または別の条件にする）
+        if key == 'clans':
+            # 日付での排除をせず、全データを保持する
+            merged[key] = df_concat.drop_duplicates().reset_index(drop=True)
+        else:
+            # 他のデータはこれまで通り日付で排除
+            df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
+            id_cols = ['_SNAPSHOT_DATE']
+            if key == 'battle_types': id_cols.append('TYPE')
+            if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
+            merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
+            
     return merged
 
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
