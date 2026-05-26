@@ -267,6 +267,8 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
     return merged
 
 def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
+    if 'TYPE' in df.columns:
+        df = df[df['TYPE'] == 1]
     if df.empty or 'BATTLES_COUNT' not in df.columns or df['BATTLES_COUNT'].sum() <= 0:
         return {"battles": None, "win_rate": None, "survived_rate": None, "avg_damage": None, "kd": None, "avg_frags": None, "avg_xp": None}
     b = float(df['BATTLES_COUNT'].sum())
