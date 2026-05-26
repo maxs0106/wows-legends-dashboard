@@ -343,16 +343,35 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # 💡 クラン名バグの修正: 過去履歴に惑わされず、一番最新日付データからタグを厳選
-    if not data["clans"].empty:
-        latest_clan_df = data["clans"].sort_values(by='_SNAPSHOT_DATE').iloc[-1:]
-        l_clan = latest_clan_df.iloc[0]
-        for col in l_clan.index:
-            if col != '_SNAPSHOT_DATE' and pd.notna(l_clan[col]) and str(l_clan[col]).strip() != "":
-                val_str = str(l_clan[col]).strip()
-                if 2 <= len(val_str) <= 5 and val_str.isalnum():
-                    clan_tag = val_str
-                    break
+    # 💡 最新の CREATED_AT に基づき、CLAN_NAME からタグを抽出
+    if not data["clans"].empty and 'CREATED_AT' in data["clans"].columns:
+        # 1. CREATED_AT でソートして最新の1行を取得
+        clan_df = data["clans"].copy()
+        clan_df['CREATED_AT'] = pd.to_datetime(clan_df['CREATED_AT'], errors='coerce')
+        latest_clan_df = clan_df.sort_values(by='CREATED_AT').dropna(subset=['CREATED_AT']).iloc[-1:]
+        
+        if not latest_clan_df.empty:
+            l_clan = latest_clan_df.iloc[0]
+            
+            # 2. 優先的に CLAN_NAME 列をチェックし、タグを探す
+            # CLAN_NAME に [TAG] のような形式が含まれていることを想定
+            target_cols = ['CLAN_NAME', 'CLAN_TAG', 'TAG'] # 念のためタグ系列も探索
+            
+            for col in target_cols:
+                if col in l_clan.index and pd.notna(l_clan[col]):
+                    val_str = str(l_clan[col]).strip()
+                    
+                    # カッコが含まれている場合は中身を抽出 (例: [ABC] -> ABC)
+                    if "[" in val_str and "]" in val_str:
+                        import re
+                        match = re.search(r'\[(.*?)\]', val_str)
+                        if match:
+                            val_str = match.group(1)
+                    
+                    # 2～5文字の英数字をタグとして採用
+                    if 2 <= len(val_str) <= 5 and val_str.isalnum():
+                        clan_tag = val_str
+                        break
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
 
