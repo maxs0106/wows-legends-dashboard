@@ -433,12 +433,6 @@ def main():
                     st.session_state.sel_mode = m_name
                     st.rerun()
 
-        BATTLE_TYPE_MAP = {
-            1: {"mode": "通常", "team": "総合"}, 2: {"mode": "AI", "team": "総合"},
-            3: {"mode": "通常", "team": "ソロ"}, 4: {"mode": "通常", "team": "2人分隊"},
-            5: {"mode": "通常", "team": "3人分隊"}, 6: {"mode": "AI", "team": "ソロ"},
-            7: {"mode": "AI", "team": "2人分隊"}, 8: {"mode": "AI", "team": "3人分隊"}
-        }
         team_order = ["総合", "ソロ", "2人分隊", "3人分隊"]
         
         actual_teams = [t for t in team_order if any(m["mode"] == current_mode and m["team"] == t for m in BATTLE_TYPE_MAP.values())]
