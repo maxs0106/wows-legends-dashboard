@@ -130,7 +130,7 @@ CSV_MAPPING = {
     "Clans.csv": "clans",
     "WOWSL_Account_Statistics.csv": "account_stats",
     "WOWSL_Battle_Types_Statistics.csv": "battle_types",
-    "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats"
+    "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats",
     "Account_Info.csv":"account_info"   
 }
 
