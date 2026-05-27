@@ -527,15 +527,36 @@ def main():
         html_table += '</tbody></table></div>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # 📈 推移トレンド（修正版）
-        trend_df = pd.DataFrame(trend_records)
-        if not trend_df.empty:
-            # 日付順に確実にソート
-            trend_df['日付'] = pd.to_datetime(trend_df['日付'])
-            trend_df = trend_df.sort_values('日付')
-            trend_df['日付_str'] = trend_df['日付'].dt.strftime('%Y/%m/%d')
+        # 📈 推移トレンド
+        st.markdown('<div class="chart-section-title">📈 通常戦（総合データ）日程別推移トレンド</div>', unsafe_allow_html=True)
+        normal_total_bt = bt_df[bt_df['TYPE'] == 1] if not bt_df.empty else pd.DataFrame()
+        
+        # 1. ここで確実に trend_records を初期化する
+        trend_records = []
+        
+        if not normal_total_bt.empty:
+            for d in unique_dates:
+                snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == d]
+                if not snap_df.empty:
+                    kpi = calc_metrics_from_row(snap_df)
+                    if kpi["battles"] is not None:
+                        trend_records.append({
+                            "日付": d, # datetime型のまま入れる
+                            "勝率": round(kpi["win_rate"], 2),
+                            "平均ダメージ": round(kpi["avg_damage"], 0), 
+                            "平均経験値": round(kpi["avg_xp"], 0)
+                        })
 
+        # 2. ここで DataFrame を作成（データが空でもエラーにならない）
+        trend_df = pd.DataFrame(trend_records)
+        
+        if not trend_df.empty:
+            # 日付型でソートして描画処理へ
+            trend_df = trend_df.sort_values("日付")
+            trend_df["日付_str"] = trend_df["日付"].dt.strftime('%Y/%m/%d')
+            
             lc1, lc2, lc3 = st.columns(3)
+            # ... 以下、前回の回答のグラフ生成コード ...
             
             # 共通のレイアウト設定
             def apply_chart_layout(fig, title, y_title):
