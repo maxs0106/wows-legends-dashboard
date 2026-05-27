@@ -530,10 +530,7 @@ def main():
         # 📈 推移トレンド
         st.markdown('<div class="chart-section-title">📈 通常戦（総合データ）日程別推移トレンド</div>', unsafe_allow_html=True)
         normal_total_bt = bt_df[bt_df['TYPE'] == 1] if not bt_df.empty else pd.DataFrame()
-        
-        # 1. ここで確実に trend_records を初期化する
         trend_records = []
-        
         if not normal_total_bt.empty:
             for d in unique_dates:
                 snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == d]
@@ -541,46 +538,28 @@ def main():
                     kpi = calc_metrics_from_row(snap_df)
                     if kpi["battles"] is not None:
                         trend_records.append({
-                            "日付": d, # datetime型のまま入れる
-                            "勝率": round(kpi["win_rate"], 2),
-                            "平均ダメージ": round(kpi["avg_damage"], 0), 
-                            "平均経験値": round(kpi["avg_xp"], 0)
+                            "日付": d.strftime('%Y/%m/%d'), "勝率": round(kpi["win_rate"], 2),
+                            "平均ダメージ": round(kpi["avg_damage"], 0), "平均経験値": round(kpi["avg_xp"], 0)
                         })
-
-        # 2. ここで DataFrame を作成（データが空でもエラーにならない）
+                        
         trend_df = pd.DataFrame(trend_records)
-        
         if not trend_df.empty:
-            # 日付型でソートして描画処理へ
-            trend_df = trend_df.sort_values("日付")
-            trend_df["日付_str"] = trend_df["日付"].dt.strftime('%Y/%m/%d')
-            
             lc1, lc2, lc3 = st.columns(3)
-            # ... 以下、前回の回答のグラフ生成コード ...
-            
-            # 共通のレイアウト設定
-            def apply_chart_layout(fig, title, y_title):
-                fig.update_traces(line_color="#00f2fe", marker=dict(size=8), textposition="top center")
-                fig.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="#070d14",
-                    plot_bgcolor="#070d14",
-                    xaxis=dict(title="", gridcolor="#1e293b", type='category'), # 日付軸をカテゴリーとして綺麗に配置
-                    yaxis=dict(title=y_title, gridcolor="#1e293b"),
-                    margin=dict(l=40, r=40, t=50, b=50),
-                    title=dict(text=title, x=0.5)
-                )
-                return fig
-
             with lc1:
-                f_win = px.line(trend_df, x="日付_str", y="勝率", markers=True, text="勝率")
-                st.plotly_chart(apply_chart_layout(f_win, "通常戦 勝率推移", "勝率 (%)"), use_container_width=True)
+                f_win = px.line(trend_df, x="日付", y="勝率", markers=True, text=[f"{v}%" for v in trend_df["勝率"]], title="通常戦 勝率推移")
+                f_win.update_traces(line_color="#00f2fe", marker=dict(size=7), textposition="top center")
+                f_win.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", yaxis=dict(title="勝率 (%)", gridcolor="#1e293b"))
+                st.plotly_chart(f_win, use_container_width=True)
             with lc2:
-                f_dmg = px.line(trend_df, x="日付_str", y="平均ダメージ", markers=True, text="平均ダメージ")
-                st.plotly_chart(apply_chart_layout(f_dmg, "通常戦 平均ダメージ推移", "平均ダメージ"), use_container_width=True)
+                f_dmg = px.line(trend_df, x="日付", y="平均ダメージ", markers=True, text=[f"{int(v):,}" for v in trend_df["平均ダメージ"]], title="通常戦 平均ダメージ推移")
+                f_dmg.update_traces(line_color="#38bdf8", marker=dict(size=7), textposition="top center")
+                f_dmg.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", yaxis=dict(title="平均ダメージ", gridcolor="#1e293b"))
+                st.plotly_chart(f_dmg, use_container_width=True)
             with lc3:
-                f_xp = px.line(trend_df, x="日付_str", y="平均経験値", markers=True, text="平均経験値")
-                st.plotly_chart(apply_chart_layout(f_xp, "通常戦 平均経験値推移", "平均経験値"), use_container_width=True)
+                f_xp = px.line(trend_df, x="日付", y="平均経験値", markers=True, text=[f"{int(v):,}" for v in trend_df["平均経験値"]], title="通常戦 平均経験値推移")
+                f_xp.update_traces(line_color="#fbbf24", marker=dict(size=7), textposition="top center")
+                f_xp.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", yaxis=dict(title="平均経験値", gridcolor="#1e293b"))
+                st.plotly_chart(f_xp, use_container_width=True)
 
         # 📊 国家・艦種戦闘数分布
         st.markdown('<div class="chart-section-title">📊 通常戦（総合データ）国籍・艦種戦闘数分布</div>', unsafe_allow_html=True)
