@@ -126,12 +126,11 @@ st.markdown(CSS_STYLE, unsafe_allow_html=True)
 # 2. マッピング定義
 # ==========================================
 CSV_MAPPING = {
+    "WOWSL_Game_Sessions.csv":"game_sessions",
+    "Clans.csv": "clans",
     "WOWSL_Account_Statistics.csv": "account_stats",
     "WOWSL_Battle_Types_Statistics.csv": "battle_types",
-    "WOWSL_Ship_Statistics.csv": "ship_base",
-    "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats",
-    "Clans.csv": "clans",
-    "Account_Info.csv": "account_info"
+    "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats"
 }
 
 IMAGE_NATION_MAP = {
