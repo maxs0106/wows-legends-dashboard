@@ -188,18 +188,31 @@ NATION_ORDER = [
 # ==========================================
 # 3. データ処理エンジン（関数群）
 # ==========================================
-def parse_ship_id(vehicle_name: str) -> Tuple[str, str, int, str]:
-    if not isinstance(vehicle_name, str) or len(vehicle_name) < 4:
-        return "その他", "その他", 0, str(vehicle_name)
+def load_ship_reference():
+    # ship_id.csv を読み込み
+    df = pd.read_csv("ship_id.csv")
+    # id をキー、(名前, Tier) を値とした辞書を作成
+    return dict(zip(df['id'], zip(df['name'], df['Tier'])))
+    
+def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tuple[str, str, str, str]:
+    # 1. 艦名とティアの取得
+    if vehicle_name in ship_map:
+        display_name, tier = ship_map[vehicle_name]
+    else:
+        display_name = vehicle_name # 見つからない場合はそのまま
+        tier = "その他"            # ティアはその他
+
+    # 2. 国籍と艦種の判定（既存ロジック）
     low_name = vehicle_name.lower().strip()
-    display_name = vehicle_name.split('_')[-1] if '_' in vehicle_name else vehicle_name
     nation, ship_class = "その他", "その他"
+    
     if low_name.startswith('p') and len(low_name) >= 4:
-        n_code, c_code = low_name[1], low_name[3] if low_name[2] == 's' else low_name[2]
-        nation, ship_class = IMAGE_NATION_MAP.get(n_code, "その他"), IMAGE_CLASS_MAP.get(c_code, "その他")
-    tier_match = re.search(r'\d+', vehicle_name)
-    tier = (int(tier_match.group()) // 100) if tier_match and int(tier_match.group()) >= 100 else (int(tier_match.group()) if tier_match else 7)
-    return nation, ship_class, tier, display_name
+        n_code = low_name[1]
+        c_code = low_name[3] if low_name[2] == 's' else low_name[2]
+        nation = IMAGE_NATION_MAP.get(n_code, "その他")
+        ship_class = IMAGE_CLASS_MAP.get(c_code, "その他")
+    
+    return nation, ship_class, str(tier), display_name
 
 def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
     matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
@@ -346,9 +359,15 @@ def main():
         
     unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
 
+    # 1. 最初にCSVを読み込んで辞書を作成（load_ship_reference関数を使用）
+    ship_name_map = load_ship_reference()
+
     ship_df = data["ship_stats"]
     if not ship_df.empty:
-        parsed_meta = ship_df['VEHICLE_NAME'].apply(parse_ship_id)
+        # 2. lambdaを使って、辞書(ship_name_map)を関数に渡すように変更
+        parsed_meta = ship_df['VEHICLE_NAME'].apply(lambda x: parse_ship_id(x, ship_name_map))
+        
+        # 3. 結果をデータフレームに格納
         ship_df['_NATION'] = [x[0] for x in parsed_meta]
         ship_df['_SHIP_TYPE'] = [x[1] for x in parsed_meta]
         ship_df['_ESTIMATED_TIER'] = [x[2] for x in parsed_meta]
