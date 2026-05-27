@@ -440,6 +440,7 @@ def main():
     with t_summary:
         bt_df = data["battle_types"]
         
+        # モード選択の初期化
         if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
         current_mode = st.session_state.sel_mode
 
@@ -450,33 +451,38 @@ def main():
             with m_cols[idx]:
                 if st.button(m_name, key=f"btn_m_{m_name}", use_container_width=True, type="primary" if current_mode == m_name else "secondary"):
                     st.session_state.sel_mode = m_name
+                    # モード切替時に部隊形式を「総合」にリセットして再描画
+                    st.session_state.sel_team = "総合"
                     st.rerun()
 
-        team_order = ["総合", "ソロ", "2人分隊", "3人分隊"]
-        
-        actual_teams = [t for t in team_order if any(m["mode"] == current_mode and m["team"] == t for m in BATTLE_TYPE_MAP.values())]
-        if not actual_teams: actual_teams = ["総合", "ソロ", "2人分隊", "3人分隊"]
-
-        if 'sel_team' not in st.session_state or st.session_state.sel_team not in actual_teams:
-            st.session_state.sel_team = actual_teams[0]
-
+        # STEP2: 部隊形式選択（常に4列で固定）
         st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
-        t_cols = st.columns(len(actual_teams))
-        for idx, t_name in enumerate(actual_teams):
+        team_options = ["総合", "ソロ", "2人分隊", "3人分隊"]
+        
+        if 'sel_team' not in st.session_state:
+            st.session_state.sel_team = "総合"
+            
+        t_cols = st.columns(len(team_options))
+        for idx, t_name in enumerate(team_options):
             with t_cols[idx]:
                 if st.button(t_name, key=f"btn_t_{t_name}", use_container_width=True, type="primary" if st.session_state.sel_team == t_name else "secondary"):
                     st.session_state.sel_team = t_name
                     st.rerun()
 
-        target_type_code = 1
-        for tid, meta in BATTLE_TYPE_MAP.items():
-            if meta["mode"] == st.session_state.sel_mode and meta["team"] == st.session_state.sel_team:
-                target_type_code = tid
-                break
+        # 選択されたモードと部隊形式に基づいてデータを抽出
+        if st.session_state.sel_team == "総合":
+            # そのモードに属する全TYPEを抽出
+            target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode]
+            mode_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
+            mode_filtered_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
+        else:
+            # 特定のTYPEを抽出
+            target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
+                                     if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
+            mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
+            mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
 
-        mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty else pd.DataFrame()
-        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty else pd.DataFrame()
-
+        
         matrix_columns = {}
         if not mode_bt_df.empty:
             global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
