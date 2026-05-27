@@ -131,6 +131,7 @@ CSV_MAPPING = {
     "WOWSL_Account_Statistics.csv": "account_stats",
     "WOWSL_Battle_Types_Statistics.csv": "battle_types",
     "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats"
+    "Account_Info.csv":"account_info"   
 }
 
 IMAGE_NATION_MAP = {
