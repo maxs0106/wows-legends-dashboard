@@ -492,13 +492,21 @@ def main():
                     st.rerun()
 
         # データ抽出ロジック
+        # データ抽出ロジックの修正
         if st.session_state.sel_team == "総合":
-            target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode]
-            mode_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
-            mode_filtered_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
+            # 総合の場合は、そのモードの「総合」を指す特定のTYPEのみを指定して抽出
+            # BATTLE_TYPE_MAP から mode が一致し、かつ team が "総合" のものを特定
+            target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
+                                     if meta["mode"] == current_mode and meta["team"] == "総合"), None)
+            
+            mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
+            mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
+        
         else:
+            # ソロ、2人、3人分隊の場合は、それぞれの特定のTYPEを指定して抽出
             target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
                                      if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
+            
             mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
             mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
 
