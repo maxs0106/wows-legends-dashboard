@@ -335,7 +335,7 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
         "avg_damage": (float(df['DAMAGE_DEALT'].sum() if 'DAMAGE_DEALT' in df.columns else 0) / b),
         "kd": (float(df['FRAGS'].sum() if 'FRAGS' in df.columns else 0) / (1.0 if d <= 0 else d)),
         "avg_frags": (float(df['FRAGS'].sum() if 'FRAGS' in df.columns else 0) / b),
-        "avg_xp": (float(df['ORIGINAL_EXP'].sum() if 'EXP' in df.columns else 0) / b)
+        "avg_xp": (float(df['ORIGINAL_EXP'].sum() if 'ORIGINAL_EXP' in df.columns else 0) / b)
     }
 
 def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict[str, Any]:
