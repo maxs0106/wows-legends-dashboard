@@ -491,30 +491,37 @@ def main():
                     st.session_state.sel_team = t_name
                     st.rerun()
 
-        # データ抽出ロジックの修正
+        # データ抽出ロジック
+        # 既存の総合行があるモード
+        DIRECT_MODE_MODES = ["通常", "AI", "アーケード", "クラン戦", "軍記"]
+        
         if st.session_state.sel_team == "総合":
-            # 該当モードの「ソロ」「2人分隊」「3人分隊」のIDをすべて取得
-            target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() 
-                                 if meta["mode"] == current_mode and meta["team"] in ["ソロ", "2人分隊", "3人分隊"]]
-            
-            # 該当するすべてのTYPEを抽出し、データフレームに格納
-            raw_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
-            raw_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
-            
-            # --- 重要なポイント ---
-            # 「総合」として表示するために、snapshot_date 単位でグループ化して合計する
-            # ※列名は計算に必要なもののみを指定してください
-            sum_cols = ['BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']
-            
-            mode_bt_df = raw_bt_df.groupby('_SNAPSHOT_DATE')[sum_cols].sum().reset_index()
-            # 便宜上TYPEを総合扱いの値（例: 0）にする
-            mode_bt_df['TYPE'] = 0 
-            
-            # 艦艇別データも同様に集計が必要な場合はここで処理
-            mode_filtered_ship_df = raw_ship_df
+            if current_mode in DIRECT_MODE_MODES:
+                # 1. 既存の「総合」行を直接抽出する（TYPE 1, 2, 23, 27, 28など）
+                target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
+                                         if meta["mode"] == current_mode and meta["team"] == "総合"), None)
+                
+                mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
+                mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
+                
+            else:
+                # 2. 総合行がないモード（ランク、アリーナ、闘争など）は合計を算出する
+                target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() 
+                                     if meta["mode"] == current_mode and meta["team"] in ["ソロ", "2人分隊", "3人分隊"]]
+                
+                raw_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
+                
+                # 日付ごとにグループ化して合計
+                sum_cols = ['BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']
+                # 欠損値を0で埋めて計算
+                mode_bt_df = raw_bt_df.groupby('_SNAPSHOT_DATE')[sum_cols].sum().reset_index()
+                mode_bt_df['TYPE'] = 0 # 総合を示すダミーID
+                
+                # 艦艇データも集計が必要な場合はここで同様の処理を行います
+                mode_filtered_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
         
         else:
-            # 個別チーム形式の場合は従来通り
+            # 「ソロ」「分隊」などの個別指定時は、全モード共通で特定のTYPEを抽出
             target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
                                      if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
             
