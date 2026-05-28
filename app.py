@@ -215,6 +215,24 @@ def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tu
     return nation, ship_class, str(tier), display_name
 
 def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
+    # 1. 優先判定: WOWSL_Account_Statistics.csv の場合は UPDATED_AT を最優先
+    if "WOWSL_Account_Statistics.csv" in file_name:
+        if 'UPDATED_AT' in df.columns and not df.empty:
+            # 数値型(タイムスタンプ)として処理を試みる
+            valid_series = pd.to_numeric(df['UPDATED_AT'], errors='coerce').dropna()
+            if not valid_series.empty:
+                max_timestamp = valid_series.max()
+                if max_timestamp > 1000000000: # 妥当なタイムスタンプか確認
+                    return pd.to_datetime(datetime.fromtimestamp(max_timestamp).date())
+            
+            # 文字列型(YYYY-MM-DD)として処理を試みる
+            string_series = df['UPDATED_AT'].astype(str).str.strip()
+            # 日付フォーマットが含まれているかチェック
+            matches = string_series.str.extract(r'(\d{4}-\d{2}-\d{2})').dropna()
+            if not matches.empty:
+                return pd.to_datetime(matches[0].max())
+
+    # 2. ファイル名に含まれる日付から取得を試みる (フォールバック)
     matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
     if matches:
         return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
@@ -226,6 +244,7 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
         except ValueError:
             pass
 
+    # 3. 最終手段: その他のカラムからの推論
     target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
     for col in target_columns:
         if col in df.columns and not df.empty:
