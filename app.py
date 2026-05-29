@@ -581,6 +581,34 @@ def main():
             fig.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", showlegend=False, height=400, margin=dict(l=20, r=20, t=50, b=20))
             st.plotly_chart(fig, use_container_width=True)
 
+        # 📊 国家・艦種戦闘数分布
+        st.markdown('<div class="chart-section-title">📊 通常戦（総合データ）国籍・艦種戦闘数分布</div>', unsafe_allow_html=True)
+        normal_ship_df = ship_df[ship_df['TYPE'] == 1] if not ship_df.empty else pd.DataFrame()
+        
+        if not normal_ship_df.empty:
+            l_date = normal_ship_df['_SNAPSHOT_DATE'].max()
+            l_ships_latest = normal_ship_df[normal_ship_df['_SNAPSHOT_DATE'] == l_date]
+            sc1, sc2 = st.columns(2)
+            
+            with sc1:
+                nat_data = l_ships_latest.groupby("_NATION")["BATTLES_COUNT"].sum().reset_index()
+                nat_data["_NATION"] = pd.Categorical(nat_data["_NATION"], categories=NATION_ORDER, ordered=True)
+                nat_data = nat_data.dropna(subset=["_NATION"]).sort_values(by="_NATION", ascending=False)
+                
+                f_nat_bar = px.bar(nat_data, x="BATTLES_COUNT", y="_NATION", orientation='h', text="BATTLES_COUNT",
+                                   title="国家別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT": "戦闘数", "_NATION": "国家"})
+                f_nat_bar.update_traces(marker_color="#00f2fe", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
+                f_nat_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
+                st.plotly_chart(f_nat_bar, use_container_width=True)
+                
+            with sc2:
+                typ_data = l_ships_latest.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index().sort_values(by="BATTLES_COUNT", ascending=True)
+                f_typ_bar = px.bar(typ_data, x="BATTLES_COUNT", y="_SHIP_TYPE", orientation='h', text="BATTLES_COUNT",
+                                   title="艦種別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT": "戦闘数", "_SHIP_TYPE": "艦種"})
+                f_typ_bar.update_traces(marker_color="#38bdf8", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
+                f_typ_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
+                st.plotly_chart(f_typ_bar, use_container_width=True)
+
     # ------------------------------------------
     # Tab 2: 国・艦種・ティア別分析
     # ------------------------------------------
