@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 # ==========================================
 # 1. ページ初期設定 & カスタムゲームUI風CSS
@@ -55,6 +56,15 @@ CSS_STYLE = """
         font-size: 1.4rem;
         color: #ffffff;
         font-weight: 700;
+    }
+
+    /* 🧭 モード選択用ヘッダー */
+    .mode-selection-header {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #00f2fe;
+        margin: 15px 0 10px 0;
+        text-transform: uppercase;
     }
 
     /* 📊 総合戦績表：横スクロール・列固定 */
@@ -126,60 +136,48 @@ st.markdown(CSS_STYLE, unsafe_allow_html=True)
 # 2. マッピング定義
 # ==========================================
 CSV_MAPPING = {
-    "WOWSL_Game_Sessions.csv":"game_sessions",
+    "WOWSL_Game_Sessions.csv": "game_sessions",
     "Clans.csv": "clans",
     "WOWSL_Account_Statistics.csv": "account_stats",
     "WOWSL_Battle_Types_Statistics.csv": "battle_types",
     "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats",
-    "Account_Info.csv":"account_info"   
+    "Account_Info.csv": "account_info"   
 }
 
 IMAGE_NATION_MAP = {
-    "a": "アメリカ",
-    "j": "日本",
-    "b": "イギリス",
-    "g": "ドイツ",
-    "f": "フランス",
-    "r": "ソ連",
-    "i": "イタリア",
-    "w": "ヨーロッパ",
-    "z": "パンアジア",
-    "e": "パンヨーロッパ",
-    "u": "イギリス連邦",
-    "h": "オランダ",
-    "n": "オランダ",
-    "s": "スペイン",
-    "v": "パンアメリカ"
+    "a": "アメリカ", "j": "日本", "b": "イギリス", "g": "ドイツ",
+    "f": "フランス", "r": "ソ連", "i": "イタリア", "w": "ヨーロッパ",
+    "z": "パンアジア", "e": "パンヨーロッパ", "u": "イギリス連邦",
+    "h": "オランダ", "n": "オランダ", "s": "スペイン", "v": "パンアメリカ"
 }
 IMAGE_CLASS_MAP = {"a": "空母", "b": "戦艦", "c": "巡洋艦", "d": "駆逐艦"}
 
 BATTLE_TYPE_MAP = {
-            1: {"mode": "通常", "team": "総合"},
-            2: {"mode": "AI", "team": "総合"},
-            3: {"mode": "通常", "team": "ソロ"},
-            4: {"mode": "通常", "team": "2人分隊"},
-            5: {"mode": "通常", "team": "3人分隊"}, 
-            6: {"mode": "AI", "team": "ソロ"},
-            7: {"mode": "AI", "team": "2人分隊"},
-            8: {"mode": "AI", "team": "3人分隊"},
-            9: {"mode": "ランク", "team": "ソロ"},
-            10: {"mode": "ランク", "team": "2人分隊"},
-            11: {"mode": "ランク", "team": "3人分隊"},
-            17: {"mode": "アリーナ", "team": "ソロ"},
-            18: {"mode": "アリーナ", "team": "2人分隊"},
-            19: {"mode": "アリーナ", "team": "3人分隊"},
-            20: {"mode": "闘争", "team": "ソロ"},
-            21: {"mode": "闘争", "team": "2人分隊"},
-            22: {"mode": "闘争", "team": "3人分隊"},
-            23: {"mode": "アーケード", "team": "総合"},
-            24: {"mode": "アーケード", "team": "ソロ"},
-            25: {"mode": "アーケード", "team": "2人分隊"},
-            26: {"mode": "アーケード", "team": "3人分隊"},
-            27: {"mode": "クラン戦", "team": "総合"},
-            28: {"mode": "軍記", "team": "総合"}
-                }
+    1: {"mode": "通常", "team": "総合"},
+    2: {"mode": "AI", "team": "総合"},
+    3: {"mode": "通常", "team": "ソロ"},
+    4: {"mode": "通常", "team": "2人分隊"},
+    5: {"mode": "通常", "team": "3人分隊"}, 
+    6: {"mode": "AI", "team": "ソロ"},
+    7: {"mode": "AI", "team": "2人分隊"},
+    8: {"mode": "AI", "team": "3人分隊"},
+    9: {"mode": "ランク", "team": "ソロ"},
+    10: {"mode": "ランク", "team": "2人分隊"},
+    11: {"mode": "ランク", "team": "3人分隊"},
+    17: {"mode": "アリーナ", "team": "ソロ"},
+    18: {"mode": "アリーナ", "team": "2人分隊"},
+    19: {"mode": "アリーナ", "team": "3人分隊"},
+    20: {"mode": "闘争", "team": "ソロ"},
+    21: {"mode": "闘争", "team": "2人分隊"},
+    22: {"mode": "闘争", "team": "3人分隊"},
+    23: {"mode": "アーケード", "team": "総合"},
+    24: {"mode": "アーケード", "team": "ソロ"},
+    25: {"mode": "アーケード", "team": "2人分隊"},
+    26: {"mode": "アーケード", "team": "3人分隊"},
+    27: {"mode": "クラン戦", "team": "総合"},
+    28: {"mode": "軍記", "team": "総合"}
+}
 
-# 🌟 ご指定いただいた国家の絶対的な表示順
 NATION_ORDER = [
     "アメリカ", "日本", "イギリス", "ドイツ", "フランス", "ソ連", 
     "イタリア", "ヨーロッパ", "パンアジア", "パンヨーロッパ", "パンアメリカ", "オランダ", "スペイン"
@@ -188,22 +186,26 @@ NATION_ORDER = [
 # ==========================================
 # 3. データ処理エンジン（関数群）
 # ==========================================
-def load_ship_reference():
-    # ship_id.csv を読み込み
-    df = pd.read_csv("ship_id.csv")
-    # id をキー、(名前, Tier) を値とした辞書を作成
-    return dict(zip(df['id'], zip(df['name'], df['Tier'])))
+def load_ship_reference() -> Dict[str, Tuple[str, str]]:
+    if os.path.exists("ship_id.csv"):
+        try:
+            df = pd.read_csv("ship_id.csv")
+            return dict(zip(df['id'].astype(str), zip(df['name'], df['Tier'])))
+        except Exception as e:
+            st.sidebar.warning(f"ship_id.csvの読み込みに失敗しました: {e}")
+    return {}
     
 def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tuple[str, str, str, str]:
     # 1. 艦名とティアの取得
-    if vehicle_name in ship_map:
-        display_name, tier = ship_map[vehicle_name]
+    clean_vname = str(vehicle_name).strip()
+    if clean_vname in ship_map:
+        display_name, tier = ship_map[clean_vname]
     else:
-        display_name = vehicle_name # 見つからない場合はそのまま
-        tier = "その他"            # ティアはその他
+        display_name = clean_vname
+        tier = "その他"
 
-    # 2. 国籍と艦種の判定（既存ロジック）
-    low_name = vehicle_name.lower().strip()
+    # 2. 国籍と艦種の判定
+    low_name = clean_vname.lower()
     nation, ship_class = "その他", "その他"
     
     if low_name.startswith('p') and len(low_name) >= 4:
@@ -215,24 +217,19 @@ def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tu
     return nation, ship_class, str(tier), display_name
 
 def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
-    # 1. 優先判定: WOWSL_Account_Statistics.csv の場合は UPDATED_AT を最優先
-    if "WOWSL_Account_Statistics.csv" in file_name:
-        if 'UPDATED_AT' in df.columns and not df.empty:
-            # 数値型(タイムスタンプ)として処理を試みる
+    if "WOWSL_Account_Statistics.csv" in file_name and not df.empty:
+        if 'UPDATED_AT' in df.columns:
             valid_series = pd.to_numeric(df['UPDATED_AT'], errors='coerce').dropna()
             if not valid_series.empty:
                 max_timestamp = valid_series.max()
-                if max_timestamp > 1000000000: # 妥当なタイムスタンプか確認
+                if max_timestamp > 1000000000:
                     return pd.to_datetime(datetime.fromtimestamp(max_timestamp).date())
             
-            # 文字列型(YYYY-MM-DD)として処理を試みる
             string_series = df['UPDATED_AT'].astype(str).str.strip()
-            # 日付フォーマットが含まれているかチェック
             matches = string_series.str.extract(r'(\d{4}-\d{2}-\d{2})').dropna()
             if not matches.empty:
                 return pd.to_datetime(matches[0].max())
 
-    # 2. ファイル名に含まれる日付から取得を試みる (フォールバック)
     matches = re.findall(r'\d{4}-\d{2}-\d{2}', file_name)
     if matches:
         return pd.to_datetime(datetime.strptime(matches[0], '%Y-%m-%d').date())
@@ -244,7 +241,6 @@ def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
         except ValueError:
             pass
 
-    # 3. 最終手段: その他のカラムからの推論
     target_columns = ['UPDATED_AT', 'LAST_BATTLE_TIME', 'LOG_OUT_TIME', 'DOSSIER_UPDATED_AT']
     for col in target_columns:
         if col in df.columns and not df.empty:
@@ -309,18 +305,18 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
             continue
         
         df_concat = pd.concat(dfs, ignore_index=True)
+        df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
         
-        # クランの場合は日付での重複排除を行わない（または別の条件にする）
         if key == 'clans':
-            # 日付での排除をせず、全データを保持する
             merged[key] = df_concat.drop_duplicates().reset_index(drop=True)
         else:
-            # 他のデータはこれまで通り日付で排除
-            df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
             id_cols = ['_SNAPSHOT_DATE']
-            if key == 'battle_types': id_cols.append('TYPE')
-            if key == 'ship_stats': id_cols.extend(['VEHICLE_NAME', 'TYPE'])
-            merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last')
+            if key == 'battle_types': 
+                id_cols.append('TYPE')
+            elif key == 'ship_stats': 
+                # 【重要バグ修正】艦艇詳細データが日付ごとに1つの艦しか残らなくなる不具合を修正
+                id_cols.extend(['VEHICLE_NAME', 'TYPE'])
+            merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last').reset_index(drop=True)
             
     return merged
 
@@ -330,7 +326,8 @@ def calc_metrics_from_row(df: pd.DataFrame) -> Dict[str, Any]:
     b = float(df['BATTLES_COUNT'].sum())
     d = b - float(df['SURVIVED'].sum() if 'SURVIVED' in df.columns else 0)
     return {
-        "battles": int(b), "win_rate": (float(df['WINS'].sum()) / b * 100),
+        "battles": int(b), 
+        "win_rate": (float(df['WINS'].sum()) / b * 100),
         "survived_rate": (float(df['SURVIVED'].sum() if 'SURVIVED' in df.columns else 0) / b * 100),
         "avg_damage": (float(df['DAMAGE_DEALT'].sum() if 'DAMAGE_DEALT' in df.columns else 0) / b),
         "kd": (float(df['FRAGS'].sum() if 'FRAGS' in df.columns else 0) / (1.0 if d <= 0 else d)),
@@ -370,7 +367,7 @@ def main():
     all_dates = []
     for df in data.values():
         if not df.empty and '_SNAPSHOT_DATE' in df.columns:
-            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().unique().tolist())
+            all_dates.extend(df['_SNAPSHOT_DATE'].dropna().tolist())
     
     if not all_dates:
         st.error("有効な日付データを含むCSVファイルが見つかりません。")
@@ -378,15 +375,11 @@ def main():
         
     unique_dates = sorted(list(set(pd.to_datetime(all_dates))))
 
-    # 1. 最初にCSVを読み込んで辞書を作成（load_ship_reference関数を使用）
     ship_name_map = load_ship_reference()
-
     ship_df = data["ship_stats"]
+    
     if not ship_df.empty:
-        # 2. lambdaを使って、辞書(ship_name_map)を関数に渡すように変更
         parsed_meta = ship_df['VEHICLE_NAME'].apply(lambda x: parse_ship_id(x, ship_name_map))
-        
-        # 3. 結果をデータフレームに格納
         ship_df['_NATION'] = [x[0] for x in parsed_meta]
         ship_df['_SHIP_TYPE'] = [x[1] for x in parsed_meta]
         ship_df['_ESTIMATED_TIER'] = [x[2] for x in parsed_meta]
@@ -398,7 +391,8 @@ def main():
     
     if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
-        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): p_name = str(l_info['NICKNAME'])
+        if 'NICKNAME' in l_info.index and pd.notna(l_info['NICKNAME']): 
+            p_name = str(l_info['NICKNAME'])
         
     if p_name == "プレイヤーデータ" and not data["account_stats"].empty:
         l_stats = data["account_stats"].iloc[-1]
@@ -407,32 +401,24 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
                 
-    # 💡 最新の CREATED_AT に基づき、CLAN_NAME からタグを抽出
     if not data["clans"].empty and 'CREATED_AT' in data["clans"].columns:
-        # 1. CREATED_AT でソートして最新の1行を取得
         clan_df = data["clans"].copy()
         clan_df['CREATED_AT'] = pd.to_datetime(clan_df['CREATED_AT'], errors='coerce')
         latest_clan_df = clan_df.sort_values(by='CREATED_AT').dropna(subset=['CREATED_AT']).iloc[-1:]
         
         if not latest_clan_df.empty:
             l_clan = latest_clan_df.iloc[0]
-            
-            # 2. 優先的に CLAN_NAME 列をチェックし、タグを探す
-            # CLAN_NAME に [TAG] のような形式が含まれていることを想定
-            target_cols = ['CLAN_NAME', 'CLAN_TAG', 'TAG'] # 念のためタグ系列も探索
+            target_cols = ['CLAN_NAME', 'CLAN_TAG', 'TAG']
             
             for col in target_cols:
                 if col in l_clan.index and pd.notna(l_clan[col]):
                     val_str = str(l_clan[col]).strip()
                     
-                    # カッコが含まれている場合は中身を抽出 (例: [ABC] -> ABC)
                     if "[" in val_str and "]" in val_str:
-                        import re
                         match = re.search(r'\[(.*?)\]', val_str)
                         if match:
                             val_str = match.group(1)
                     
-                    # 2～5文字の英数字をタグとして採用
                     if 2 <= len(val_str) <= 20 and val_str.isalnum():
                         clan_tag = val_str
                         break
@@ -442,9 +428,7 @@ def main():
     header_html = f"""
     <div class="game-header-container">
         <div class="game-title">WOWSL Legends Dashboard</div>
-        <div class="player-clan-info">
-            {player_display_string}
-        </div>
+        <div class="player-clan-info">{player_display_string}</div>
     </div>
     """
     st.markdown(header_html, unsafe_allow_html=True)
@@ -459,7 +443,8 @@ def main():
     with t_summary:
         bt_df = data["battle_types"]
         
-        if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
+        if 'sel_mode' not in st.session_state: 
+            st.session_state.sel_mode = "通常"
         current_mode = st.session_state.sel_mode
 
         st.markdown('<div class="mode-selection-header">■ STEP1: モード選択</div>', unsafe_allow_html=True)
@@ -472,10 +457,7 @@ def main():
                     st.session_state.sel_team = "総合"
                     st.rerun()
 
-        # STEP2: 部隊形式選択
         st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
-        
-        # モードによってボタンの数を切り替える
         if current_mode in ["クラン戦", "軍記"]:
             team_options = ["総合"]
         else:
@@ -484,7 +466,7 @@ def main():
         if 'sel_team' not in st.session_state or st.session_state.sel_team not in team_options:
             st.session_state.sel_team = "総合"
             
-        t_cols = st.columns(4) # 常に4列構成にすることで幅を固定
+        t_cols = st.columns(4)
         for idx, t_name in enumerate(team_options):
             with t_cols[idx]:
                 if st.button(t_name, key=f"btn_t_{t_name}", use_container_width=True, type="primary" if st.session_state.sel_team == t_name else "secondary"):
@@ -492,45 +474,39 @@ def main():
                     st.rerun()
 
         # データ抽出ロジック
-        # 既存の総合行があるモード
         DIRECT_MODE_MODES = ["通常", "AI", "アーケード", "クラン戦", "軍記"]
+        sum_cols = ['BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']
         
         if st.session_state.sel_team == "総合":
             if current_mode in DIRECT_MODE_MODES:
-                # 1. 既存の「総合」行を直接抽出する（TYPE 1, 2, 23, 27, 28など）
-                target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
-                                         if meta["mode"] == current_mode and meta["team"] == "総合"), None)
-                
+                target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] == "総合"), None)
                 mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
                 mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
-                
             else:
-                # 2. 総合行がないモード（ランク、アリーナ、闘争など）は合計を算出する
-                target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() 
-                                     if meta["mode"] == current_mode and meta["team"] in ["ソロ", "2人分隊", "3人分隊"]]
-                
+                # 総合行がないモード（ランク等）の集計
+                target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] in ["ソロ", "2人分隊", "3人分隊"]]
                 raw_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
+                mode_bt_df = raw_bt_df.groupby('_SNAPSHOT_DATE')[sum_cols].sum().reset_index() if not raw_bt_df.empty else pd.DataFrame()
+                if not mode_bt_df.empty: 
+                    mode_bt_df['TYPE'] = 0
                 
-                # 日付ごとにグループ化して合計
-                sum_cols = ['BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']
-                # 欠損値を0で埋めて計算
-                mode_bt_df = raw_bt_df.groupby('_SNAPSHOT_DATE')[sum_cols].sum().reset_index()
-                mode_bt_df['TYPE'] = 0 # 総合を示すダミーID
-                
-                # 艦艇データも集計が必要な場合はここで同様の処理を行います
-                mode_filtered_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
-        
+                # 【追加修正】総合行がない場合の艦艇マージ処理を実装
+                raw_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
+                if not raw_ship_df.empty:
+                    group_keys = ['_SNAPSHOT_DATE', 'VEHICLE_NAME', '_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME']
+                    mode_filtered_ship_df = raw_ship_df.groupby(group_keys)[sum_cols].sum().reset_index()
+                    mode_filtered_ship_df['TYPE'] = 0
+                else:
+                    mode_filtered_ship_df = pd.DataFrame()
         else:
-            # 「ソロ」「分隊」などの個別指定時は、全モード共通で特定のTYPEを抽出
-            target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() 
-                                     if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
-            
+            target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
             mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
             mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
         
         matrix_columns = {}
         if not mode_bt_df.empty:
-            global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == mode_bt_df['_SNAPSHOT_DATE'].max()])
+            max_date = mode_bt_df['_SNAPSHOT_DATE'].max()
+            global_kpi = calc_metrics_from_row(mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == max_date])
         else:
             global_kpi = calc_metrics_from_row(pd.DataFrame())
         matrix_columns["全期間"] = global_kpi
@@ -558,7 +534,8 @@ def main():
         ]
 
         html_table = '<div class="matrix-scroll-wrapper"><table class="matrix-table"><thead><tr><th class="sticky-indicator">各種データ</th><th class="sticky-lifetime">全期間</th>'
-        for p_key in period_keys: html_table += f'<th>{p_key}</th>'
+        for p_key in period_keys: 
+            html_table += f'<th>{p_key}</th>'
         html_table += '</tr></thead><tbody>'
         for label, key, fmt in row_indicators:
             html_table += f'<tr><td class="sticky-indicator">{label}</td>'
@@ -573,7 +550,6 @@ def main():
 
         # 📈 推移トレンド
         st.markdown('<div class="chart-section-title">📈 通常戦（総合データ）日程別推移トレンド</div>', unsafe_allow_html=True)
-        from plotly.subplots import make_subplots
 
         normal_total_bt = bt_df[bt_df['TYPE'] == 1] if not bt_df.empty else pd.DataFrame()
         trend_records = []
@@ -583,7 +559,6 @@ def main():
                 if not snap_df.empty:
                     kpi = calc_metrics_from_row(snap_df)
                     if kpi["battles"] is not None:
-                        # 日付オブジェクトのまま保持（可視化用の文字列とは別に扱う）
                         trend_records.append({
                             "日付_obj": d, 
                             "勝率": round(kpi["win_rate"], 2),
@@ -593,15 +568,12 @@ def main():
         
         trend_df = pd.DataFrame(trend_records)
         if not trend_df.empty:
-            # 3つのグラフを1つの図として作成
             fig = make_subplots(rows=1, cols=3, subplot_titles=("通常戦 勝率推移", "通常戦 平均ダメージ推移", "通常戦 平均経験値推移"))
             
-            # 各トレースを追加（x軸に日付オブジェクトを使用）
             fig.add_trace(go.Scatter(x=trend_df["日付_obj"], y=trend_df["勝率"], mode='lines+markers+text', name="勝率", text=[f"{v}%" for v in trend_df["勝率"]], line=dict(color="#00f2fe")), row=1, col=1)
             fig.add_trace(go.Scatter(x=trend_df["日付_obj"], y=trend_df["平均ダメージ"], mode='lines+markers+text', name="平均ダメ", text=[f"{int(v):,}" for v in trend_df["平均ダメージ"]], line=dict(color="#38bdf8")), row=1, col=2)
             fig.add_trace(go.Scatter(x=trend_df["日付_obj"], y=trend_df["平均経験値"], mode='lines+markers+text', name="平均EXP", text=[f"{int(v):,}" for v in trend_df["平均経験値"]], line=dict(color="#fbbf24")), row=1, col=3)
             
-            # 💡 【重要】各サブプロットのX軸を「日付型」に設定
             fig.update_xaxes(type='date', tickformat='%Y/%m/%d', gridcolor="#1e293b")
             fig.update_yaxes(gridcolor="#1e293b")
             
@@ -613,7 +585,6 @@ def main():
                 height=400,
                 margin=dict(l=20, r=20, t=50, b=20)
             )
-            
             st.plotly_chart(fig, use_container_width=True)
 
         # 📊 国家・艦種戦闘数分布
@@ -627,12 +598,11 @@ def main():
             
             with sc1:
                 nat_data = l_ships_latest.groupby("_NATION")["BATTLES_COUNT"].sum().reset_index()
-                # 🌟 ご指定いただいた国家順に完全固定してソート
                 nat_data["_NATION"] = pd.Categorical(nat_data["_NATION"], categories=NATION_ORDER, ordered=True)
                 nat_data = nat_data.dropna(subset=["_NATION"]).sort_values(by="_NATION", ascending=False)
                 
                 f_nat_bar = px.bar(nat_data, x="BATTLES_COUNT", y="_NATION", orientation='h', text="BATTLES_COUNT",
-                                   title="国家別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT":"戦闘数", "_NATION":"国家"})
+                                   title="国家別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT": "戦闘数", "_NATION": "国家"})
                 f_nat_bar.update_traces(marker_color="#00f2fe", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
                 f_nat_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
                 st.plotly_chart(f_nat_bar, use_container_width=True)
@@ -640,7 +610,7 @@ def main():
             with sc2:
                 typ_data = l_ships_latest.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index().sort_values(by="BATTLES_COUNT", ascending=True)
                 f_typ_bar = px.bar(typ_data, x="BATTLES_COUNT", y="_SHIP_TYPE", orientation='h', text="BATTLES_COUNT",
-                                   title="艦種別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT":"戦闘数", "_SHIP_TYPE":"艦種"})
+                                   title="艦種別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT": "戦闘数", "_SHIP_TYPE": "艦種"})
                 f_typ_bar.update_traces(marker_color="#38bdf8", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
                 f_typ_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
                 st.plotly_chart(f_typ_bar, use_container_width=True)
@@ -658,8 +628,10 @@ def main():
                     kpi = calc_metrics_from_row(sub_df)
                     if kpi["battles"] is not None:
                         nat_records.append({"国家": n, "戦闘数": kpi["battles"], "勝率": f'{kpi["win_rate"]:.2f}%', "平均与ダメ": int(kpi["avg_damage"])})
-            if nat_records: st.dataframe(pd.DataFrame(nat_records), width='stretch', hide_index=True)
-        else: st.info("データがありません。")
+            if nat_records: 
+                st.dataframe(pd.DataFrame(nat_records), use_container_width=True, hide_index=True)
+        else: 
+            st.info("データがありません。")
 
     # ------------------------------------------
     # Tab 3: 艦種別分析
@@ -667,9 +639,18 @@ def main():
     with t_type:
         if not mode_filtered_ship_df.empty:
             l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()]
-            typ_records = [{"艦種": t, "戦闘数": calc_metrics_from_row(l_ships[l_ships['_SHIP_TYPE'] == t])["battles"], "勝率": f'{calc_metrics_from_row(l_ships[l_ships['_SHIP_TYPE'] == t])["win_rate"]:.2f}%', "平均与ダメ": int(calc_metrics_from_row(l_ships[l_ships['_SHIP_TYPE'] == t])["avg_damage"])} for t in l_ships['_SHIP_TYPE'].unique() if calc_metrics_from_row(l_ships[l_ships['_SHIP_TYPE'] == t])["battles"] is not None]
-            if typ_records: st.dataframe(pd.DataFrame(typ_records).sort_values("戦闘数", ascending=False), width='stretch', hide_index=True)
-        else: st.info("データがありません。")
+            typ_records = []
+            for t in l_ships['_SHIP_TYPE'].unique():
+                sub_df = l_ships[l_ships['_SHIP_TYPE'] == t]
+                kpi = calc_metrics_from_row(sub_df)
+                if kpi["battles"] is not None:
+                    typ_records.append({
+                        "艦種": t, "戦闘数": kpi["battles"], "勝率": f'{kpi["win_rate"]:.2f}%', "平均与ダメ": int(kpi["avg_damage"])
+                    })
+            if typ_records: 
+                st.dataframe(pd.DataFrame(typ_records).sort_values("戦闘数", ascending=False), use_container_width=True, hide_index=True)
+        else: 
+            st.info("データがありません。")
 
     # ------------------------------------------
     # Tab 4: 艦艇別詳細 (指定順)
@@ -679,21 +660,24 @@ def main():
             l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()].copy()
             c_f1, c_f2 = st.columns(2)
             
-            # 🌟 セレクトボックスの国家選択肢も指定順でソート
             available_nations = [n for n in NATION_ORDER if n in l_ships['_NATION'].unique()]
             s_nat = c_f1.selectbox("国家で絞り込む", ["すべて"] + available_nations)
             s_typ = c_f2.selectbox("艦種で絞り込む", ["すべて"] + list(l_ships['_SHIP_TYPE'].unique()))
             
             mask = pd.Series(True, index=l_ships.index)
-            if s_nat != "すべて": mask = mask & (l_ships['_NATION'] == s_nat)
-            if s_typ != "すべて": mask = mask & (l_ships['_SHIP_TYPE'] == s_typ)
+            if s_nat != "すべて": 
+                mask = mask & (l_ships['_NATION'] == s_nat)
+            if s_typ != "すべて": 
+                mask = mask & (l_ships['_SHIP_TYPE'] == s_typ)
             query_df = l_ships[mask]
             
             records_list = [{"艦艇名": f'<span class="game-ship-name">{r["_CLEAN_NAME"]}</span>', "国家": r['_NATION'], "艦種": r['_SHIP_TYPE'], "戦闘数": r['BATTLES_COUNT'], "勝率": f"{(r['WINS']/r['BATTLES_COUNT']*100):.2f}%", "平均与ダメ": int(r['DAMAGE_DEALT']/r['BATTLES_COUNT'])} for _, r in query_df.iterrows() if r['BATTLES_COUNT'] > 0]
             if records_list: 
                 st.write(pd.DataFrame(records_list).sort_values(by="戦闘数", ascending=False).to_html(escape=False, index=False), unsafe_allow_html=True)
-            else: st.info("該当する艦艇データがありません。")
-        else: st.info("データがありません。")
+            else: 
+                st.info("該当する艦艇データがありません。")
+        else: 
+            st.info("データがありません。")
 
     # ------------------------------------------
     # Tab 5: 自己ベスト (柔軟な部分一致スキャン版)
@@ -701,7 +685,6 @@ def main():
     with t_best:
         acc_df = data["account_stats"]
         if not acc_df.empty:
-            # 💡 キー名のズレに対応する柔軟なマッピング
             search_rules = [
                 ("最高与ダメージ", ["DAMAGE_DEALT", "DAMAGE", "MAX_DAMAGE"]),
                 ("最高経験値", ["MAX_EXP", "EXP", "MAXIMUM_EXP"]),
@@ -712,20 +695,18 @@ def main():
             b_records = []
             for label, potential_cols in search_rules:
                 matched_col = None
-                # 完全一致または部分一致するカラムを探す
                 for c in acc_df.columns:
                     if any(p in c for p in potential_cols):
                         matched_col = c
                         break
                 
                 if matched_col:
-                    # 強制的に数値化して最大値をスキャン
                     series_num = pd.to_numeric(acc_df[matched_col], errors='coerce').dropna()
                     if not series_num.empty:
                         b_records.append({"項目": label, "記録": f"{int(series_num.max()):,}"})
                         
             if b_records: 
-                st.dataframe(pd.DataFrame(b_records), width='stretch', hide_index=True)
+                st.dataframe(pd.DataFrame(b_records), use_container_width=True, hide_index=True)
             else:
                 st.warning("項目データの抽出に失敗しました。CSVのカラム名が変更されている可能性があります。")
         else: 
@@ -736,8 +717,10 @@ def main():
     # ------------------------------------------
     with t_clan:
         clan_df = data["clans"]
-        if not clan_df.empty: st.dataframe(clan_df[clan_df['_SNAPSHOT_DATE'] == clan_df['_SNAPSHOT_DATE'].max()].T, width='stretch')
-        else: st.info("クランデータ（Clans.csv）がありません。")
+        if not clan_df.empty: 
+            st.dataframe(clan_df[clan_df['_SNAPSHOT_DATE'] == clan_df['_SNAPSHOT_DATE'].max()].T, use_container_width=True)
+        else: 
+            st.info("クランデータ（Clans.csv）がありません。")
 
 if __name__ == '__main__':
     main()
