@@ -196,7 +196,8 @@ NATION_ORDER = [
     "イタリア", "ヨーロッパ", "パンアジア", "パンヨーロッパ", "パンアメリカ", "オランダ", "スペイン"
 ]
 
-TIER_ORDER = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "Legend"]
+# ★ (レジェンダリー)表記を順序の最後に固定
+TIER_ORDER = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "★ (Legend)"]
 
 # ==========================================
 # 3. データ処理エンジン（関数群）
@@ -213,7 +214,13 @@ def load_ship_reference() -> Dict[str, Tuple[str, str]]:
 def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tuple[str, str, str, str]:
     clean_vname = str(vehicle_name).strip()
     if clean_vname in ship_map:
-        display_name, tier = ship_map[clean_vname]
+        display_name, raw_tier = ship_map[clean_vname]
+        # レジェンダリー層の表記ゆれ（★, L, Legend, Legendary, 11等）を吸収して「★ (Legend)」に統一
+        str_tier = str(raw_tier).strip()
+        if str_tier in ["★", "L", "Legend", "Legendary", "11"]:
+            tier = "★ (Legend)"
+        else:
+            tier = str_tier
     else:
         display_name = clean_vname
         tier = "その他"
@@ -224,7 +231,6 @@ def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tu
     if low_name.startswith('p') and len(low_name) >= 4:
         n_code = low_name[1]
         c_code = low_name[3] if low_name[2] == 's' else low_name[2]
-        nation = IMAGE_NATION_MAP.get(n_code, "sound") if n_code in IMAGE_NATION_MAP else "その他"
         nation = IMAGE_NATION_MAP.get(n_code, "その他")
         ship_class = IMAGE_CLASS_MAP.get(c_code, "その他")
     
@@ -363,7 +369,6 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
         "avg_xp": max(0.0, float(df_new['ORIGINAL_EXP'].sum() - df_old['ORIGINAL_EXP'].sum()) / b)
     }
 
-# 固定列＋横スクロールHTMLテーブルを生成するヘルパー関数
 def generate_matrix_html(headers: List[str], rows_data: List[Tuple[str, List[Any]]], formats: List[str]) -> str:
     html = '<div class="matrix-scroll-wrapper"><table class="matrix-table"><thead><tr><th class="sticky-indicator">分類・項目</th>'
     for h in headers:
@@ -554,7 +559,6 @@ def main():
         html_table += '</tbody></table></div>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # トレンド・分布図
         st.markdown('<div class="chart-section-title">📈 通常戦（総合データ）日程別推移トレンド</div>', unsafe_allow_html=True)
         normal_total_bt = bt_df[bt_df['TYPE'] == 1] if not bt_df.empty else pd.DataFrame()
         trend_records = []
@@ -578,7 +582,7 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
 
     # ------------------------------------------
-    # Tab 2: 国・艦種・ティア別分析 (統合・拡張版)
+    # Tab 2: 国・艦種・ティア別分析
     # ------------------------------------------
     with t_structural:
         if not mode_filtered_ship_df.empty:
@@ -622,7 +626,8 @@ def main():
                 if not sub_df.empty:
                     kpi = calc_metrics_from_row(sub_df)
                     if kpi["battles"] is not None:
-                        tier_rows.append((f"Tier {tier}" if tier != "Legend" else "Legend", [kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
+                        row_label = "Legendary" if "Legend" in tier else f"Tier {tier}"
+                        tier_rows.append((row_label, [kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
             if tier_rows:
                 st.markdown(generate_matrix_html(headers, tier_rows, formats), unsafe_allow_html=True)
             else:
@@ -631,7 +636,7 @@ def main():
             st.info("選択されたモード・部隊形式の艦艇データがありません。")
 
     # ------------------------------------------
-    # Tab 3: 艦艇別詳細 (マトリクス統一化)
+    # Tab 3: 艦艇別詳細
     # ------------------------------------------
     with t_ship:
         if not mode_filtered_ship_df.empty:
@@ -655,7 +660,11 @@ def main():
                 if r['BATTLES_COUNT'] > 0:
                     kpi = calc_metrics_from_row(pd.DataFrame([r]))
                     ship_html_name = f'<span class="game-ship-name">{r["_CLEAN_NAME"]}</span>'
-                    ship_rows.append((ship_html_name, [r['_NATION'], r['_SHIP_TYPE'], r['_ESTIMATED_TIER'], kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
+                    
+                    # 艦艇個別リストでもレジェンダリーを見やすく整形
+                    display_tier = "Legendary" if "Legend" in str(r['_ESTIMATED_TIER']) else r['_ESTIMATED_TIER']
+                    
+                    ship_rows.append((ship_html_name, [r['_NATION'], r['_SHIP_TYPE'], display_tier, kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
             
             if ship_rows:
                 st.markdown(generate_matrix_html(ship_headers, ship_rows, ship_formats), unsafe_allow_html=True)
@@ -665,11 +674,11 @@ def main():
             st.info("データがありません。")
 
     # ------------------------------------------
-    # Tab 4: 自己ベスト (ship_statsから動的抽出)
+    # Tab 4: 自己ベスト
     # ------------------------------------------
     with t_best:
         if not ship_df.empty:
-            st.markdown('<div class="chart-section-title">🏆 艦艇詳細ログ（WOWSL_Ship_Statistics_By_Type）からスキャンした最高記録</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-section-title">🏆 艦艇詳細ログからスキャンした最高記録</div>', unsafe_allow_html=True)
             
             best_targets = [
                 ("最高与ダメージ", "MAX_DAMAGE_DEALT"),
@@ -695,7 +704,6 @@ def main():
                         ship_name = best_row.get('_CLEAN_NAME', best_row['VEHICLE_NAME'])
                         mode_code = best_row['TYPE']
                         
-                        # モードコードを分かりやすい名前に変換
                         mode_meta = BATTLE_TYPE_MAP.get(int(mode_code), {"mode": f"コード:{mode_code}", "team": ""})
                         mode_display = f"{mode_meta['mode']} ({mode_meta['team']})" if mode_meta['team'] else mode_meta['mode']
                         
@@ -704,12 +712,12 @@ def main():
             if best_rows:
                 st.markdown(generate_matrix_html(best_headers, best_rows, best_formats), unsafe_allow_html=True)
             else:
-                st.warning("艦艇詳細データに必要な最高記録カラム（MAX_DAMAGE_DEALT等）が含まれていません。")
+                st.warning("艦艇詳細データに必要な最高記録カラムが含まれていません。")
         else:
             st.info("艦艇詳細データ（ship_stats）がありません。")
 
     # ------------------------------------------
-    # Tab 5: クランデータ (マトリクス統一化)
+    # Tab 5: クランデータ
     # ------------------------------------------
     with t_clan:
         clan_df = data["clans"]
