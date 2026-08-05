@@ -691,14 +691,14 @@ def main():
                 # マスク処理
                 mask = pd.Series(True, index=l_ships.index)
                 
-                # 艦種フィルタ
-                if "すべて" not in sel_types:
+                # 【修正】選択肢が存在し、かつ「すべて」が含まれていない場合のみ絞り込む
+                if sel_types and "すべて" not in sel_types:
                     mask = mask & (l_ships['_SHIP_TYPE'].isin(sel_types))
                     
-                # 国家フィルタ
-                if "すべて" not in sel_nations:
+                # 【修正】選択肢が存在し、かつ「すべて」が含まれていない場合のみ絞り込む
+                if sel_nations and "すべて" not in sel_nations:
                     mask = mask & (l_ships['_NATION'].isin(sel_nations))
-                    
+                        
                 # ティア範囲フィルタ
                 min_val = min(min_t, max_t)
                 max_val = max(min_t, max_t)
