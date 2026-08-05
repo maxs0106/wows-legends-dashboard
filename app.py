@@ -780,165 +780,88 @@ def main():
     # ------------------------------------------
     # Tab 5: その他 (クラン履歴・累計プレイ時間)
     # ------------------------------------------
-    def process_clan_history(df_clans: pd.DataFrame) -> pd.DataFrame:
-    
-    #クラン入隊履歴の整形処理
-    #・入隊・除隊のみ抽出
-    #・クラン名、年月日、記号（＞/＜）の表示
-    #・重複削除
-    
-    if df_clans.empty:
-        return pd.DataFrame(columns=["クラン名", "年月日", "種別"])
-
-    df = df_clans.copy()
-
-    # カラム名の柔軟な自動判別
-    clan_col = next((c for c in df.columns if any(k in c for k in ["CLAN", "NAME", "TAG"])), df.columns[0])
-    action_col = next((c for c in df.columns if any(k in c for k in ["ACTION", "TYPE", "EVENT", "STATUS", "ROLE"])), None)
-    date_col = next((c for c in df.columns if any(k in c for k in ["DATE", "TIME", "CREATED", "UPDATED"])), None)
-
-    # アクション列がない場合のフォールバック（文字列検索）
-    if action_col is None:
-        for c in df.columns:
-            if df[c].astype(str).str.contains("入隊|除隊|JOIN|LEAVE|JOINED|LEFT", case=False, na=False).any():
-                action_col = c
-                break
-
-    # 日付列がない場合のフォールバック
-    if date_col is None:
-        for c in df.columns:
-            if df[c].astype(str).str.contains(r'\d{4}-\d{2}-\d{2}', na=False).any():
-                date_col = c
-                break
-
-    processed_rows = []
-    for _, row in df.iterrows():
-        action_val = str(row[action_col]).upper() if action_col and pd.notna(row[action_col]) else ""
+    with t_other:
+        c1, c2 = st.columns(2)
         
-        # 入隊・除隊判定と記号変換
-        symbol = None
-        if any(k in action_val for k in ["入隊", "JOIN", "JOINED", "ENTER"]):
-            symbol = "＞"
-        elif any(k in action_val for k in ["除隊", "LEAVE", "LEFT", "EXIT", "QUIT"]):
-            symbol = "＜"
-            
-        if symbol is None:
-            continue  # 入隊・除隊以外はスキップ
+        # 🛡️ クラン履歴表示
+        with c1:
+            st.markdown('<div class="chart-section-title">🛡️ クラン入退隊・役職履歴</div>', unsafe_allow_html=True)
+            clan_df = data["clans"]
+            if not clan_df.empty:
+                try:
+                    df_c = clan_df.copy()
+                    
+                    # 列名の取得 (ヘッダー付き or 無し対応)
+                    # 想定構造: "CLAN_NAME", "CREATED_AT", "OPERATION_NAME", "ROLE_NAME"
+                    if 'CREATED_AT' in df_c.columns:
+                        col_created = 'CREATED_AT'
+                        col_clan = 'CLAN_NAME' if 'CLAN_NAME' in df_c.columns else df_c.columns[0]
+                        col_op = 'OPERATION_NAME' if 'OPERATION_NAME' in df_c.columns else df_c.columns[2]
+                        col_role = 'ROLE_NAME' if 'ROLE_NAME' in df_c.columns else df_c.columns[3]
+                    else:
+                        col_clan = df_c.columns[0]
+                        col_created = df_c.columns[1]
+                        col_op = df_c.columns[2]
+                        col_role = df_c.columns[3]
+                        
+                    df_c['DT'] = pd.to_datetime(df_c[col_created], errors='coerce')
+                    df_c = df_c.dropna(subset=['DT']).sort_values(by='DT', ascending=False)
+                    
+                    op_map = {
+                        "join_clan": "入隊",
+                        "leave_clan": "除隊",
+                        "change_role": "役職変更"
+                    }
+                    
+                    records = []
+                    for _, row in df_c.iterrows():
+                        op_raw = str(row[col_op]).strip() if pd.notna(row[col_op]) else ""
+                        op_label = op_map.get(op_raw, op_raw)
+                        
+                        records.append({
+                            "日時": row['DT'].strftime("%Y-%m-%d %H:%M:%S"),
+                            "クラン名": str(row[col_clan]) if pd.notna(row[col_clan]) else "-",
+                            "操作": op_label,
+                            "役職": str(row[col_role]) if pd.notna(row[col_role]) else "-"
+                        })
+                        
+                    if records:
+                        st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("有効なクラン履歴データがありません。")
+                except Exception as e:
+                    st.error(f"クランデータの解析中にエラーが発生しました: {e}")
+            else:
+                st.info("クランデータ（Clans.csv）がありません。")
 
-        # クラン名取得
-        clan_name = str(row[clan_col]).strip() if pd.notna(row[clan_col]) else "不明"
+        # ⏱️ 累計プレイ時間の計算
+        with c2:
+            st.markdown('<div class="chart-section-title">⏱️ 累計プレイ時間</div>', unsafe_allow_html=True)
+            sess_df = data["game_sessions"]
+            if not sess_df.empty:
+                try:
+                    # 想定構造: "2021-04-04 13:42:56.000", "2021-04-04 14:25:36.000", "IPアドレス"
+                    col_start = sess_df.columns[0]
+                    col_end = sess_df.columns[1]
+                    
+                    start_dt = pd.to_datetime(sess_df[col_start], errors='coerce')
+                    end_dt = pd.to_datetime(sess_df[col_end], errors='coerce')
+                    
+                    # 差分（秒）を計算
+                    durations = (end_dt - start_dt).dt.total_seconds()
+                    valid_durations = durations[durations > 0]
+                    
+                    total_seconds = valid_durations.sum()
+                    if total_seconds > 0:
+                        hours = int(total_seconds // 3600)
+                        minutes = int((total_seconds % 3600) // 60)
+                        st.metric("累計プレイ時間", f"{hours:,} 時間 {minutes} 分")
+                    else:
+                        st.info("有効なセッション時間データがありません。")
+                except Exception as e:
+                    st.error(f"プレイ時間の計算中にエラーが発生しました: {e}")
+            else:
+                st.info("セッションデータ（WOWSL_Game_Sessions.csv）がありません。")
 
-        # 年月日（YYYY-MM-DD）の抽出
-        raw_date_str = str(row[date_col]) if date_col and pd.notna(row[date_col]) else ""
-        date_match = re.search(r'\d{4}-\d{2}-\d{2}', raw_date_str)
-        formatted_date = date_match.group(0) if date_match else raw_date_str[:10]
-
-        processed_rows.append({
-            "クラン名": clan_name,
-            "年月日": formatted_date,
-            "区分": symbol
-        })
-
-    result_df = pd.DataFrame(processed_rows)
-    
-    # 重複削除（クラン名、年月日、区分の組み合わせ）
-    if not result_df.empty:
-        result_df = result_df.drop_duplicates(subset=["クラン名", "年月日", "区分"]).reset_index(drop=True)
-
-    return result_df
-
-
-def calculate_total_playtime(df_sessions: pd.DataFrame) -> Tuple[str, float, int]:
-    """
-    プレイ時間（WOWSL_Game_Sessions.csv）の差分合計計算
-    ・1列目（開始時刻）と2列目（終了時刻）の差分を全行で計算して集計
-    """
-    if df_sessions.empty:
-        return "0時間0分0秒", 0.0, 0
-
-    df = df_sessions.copy()
-    
-    # 最初の2列を開始時間・終了時間として取得
-    start_col = df.columns[0]
-    end_col = df.columns[1]
-
-    # 日時型に変換（パースエラーはNaTに変換）
-    start_times = pd.to_datetime(df[start_col], errors='coerce')
-    end_times = pd.to_datetime(df[end_col], errors='coerce')
-
-    # 差分（秒数）を計算
-    time_diffs = (end_times - start_times).dt.total_seconds()
-    
-    # 正の数値のみ（正常なデータ）を合計
-    valid_diffs = time_diffs[time_diffs > 0]
-    total_seconds = valid_diffs.sum()
-    session_count = len(valid_diffs)
-
-    # 時間・分・秒にフォーマット変換
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = int(total_seconds % 60)
-
-    formatted_time = f"{hours:,}時間 {minutes}分 {seconds}秒"
-    
-    return formatted_time, total_seconds, session_count
-
-
-# ==========================================
-# 5. UI描画部分（その他タブ内の実装例）
-# ==========================================
-# ※ Streamlitのタブ構造の中で以下のように呼び出して使用します。
-
-def render_other_tab(merged_data: Dict[str, pd.DataFrame]):
-    st.markdown('<div class="chart-section-title">⚙️ その他データ分析</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1])
-
-    # --------------------------------------
-    # ① クラン入隊履歴
-    # --------------------------------------
-    with col1:
-        st.markdown("### 🛡️ クラン入隊履歴")
-        df_clans = merged_data.get("clans", pd.DataFrame())
-        
-        clan_history_df = process_clan_history(df_clans)
-        
-        if not clan_history_df.empty:
-            # 画面表示用に「クラン名」「年月日」「区分」を綺麗に並べて表示
-            st.dataframe(
-                clan_history_df,
-                column_config={
-                    "クラン名": st.column_config.TextColumn("クラン名", width="medium"),
-                    "年月日": st.column_config.TextColumn("年月日", width="small"),
-                    "区分": st.column_config.TextColumn("区分 (＞:入隊 / ＜:除隊)", width="small"),
-                },
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.info("表示可能なクラン入隊・除隊履歴データがありません。")
-
-    # --------------------------------------
-    # ② プレイ時間集計
-    # --------------------------------------
-    with col2:
-        st.markdown("### ⏱️ 総プレイ時間")
-        df_sessions = merged_data.get("game_sessions", pd.DataFrame())
-        
-        formatted_playtime, total_sec, count = calculate_total_playtime(df_sessions)
-        
-        # ハイライト表示カード
-        st.metric(
-            label="合計プレイ時間（全セッション差分合計）",
-            value=formatted_playtime,
-            delta=f"対象ログ: {count:,} 件" if count > 0 else None
-        )
-        
-        if total_sec > 0:
-            days = round(total_sec / 86400, 1)
-            st.caption(f"💡 日数換算: 約 **{days} 日間**")
-        else:
-            st.info("プレイセッションデータが見つかりません。")
-            
 if __name__ == '__main__':
     main()
