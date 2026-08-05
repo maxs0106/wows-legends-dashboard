@@ -850,14 +850,6 @@ def main():
                     # データが格納されているすべての行について差分（秒）を計算して合計
                     durations = (end_dt - start_dt)
 
-                    st.write(sess_df.head())
-
-                    st.write(start_dt.head())
-                    
-                    st.write(end_dt.head())
-                    
-                    st.write(durations.head())
-                                        
                     total_seconds = durations.dt.total_seconds().sum()
                     if total_seconds > 0:
                         hours = int(total_seconds // 3600)
