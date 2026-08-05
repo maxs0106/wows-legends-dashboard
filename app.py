@@ -425,7 +425,7 @@ def main():
                 break
 
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
-    st.markdown(f'<div class="game-header-container"><div class="game-title">WOWSL Legends Dashboard</div><div class="player-clan-info">{player_display_string}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="game-header-container"><div class="game-title">Wows Legends Dashboard</div><div class="player-clan-info">{player_display_string}</div></div>', unsafe_allow_html=True)
 
     # ==========================================
     # 全タブ共通：モード・部隊形式の選択とデータ生成
