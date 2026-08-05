@@ -681,7 +681,7 @@ def main():
                 with ct1:
                     min_t = st.number_input("",min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
                 with ct2:
-                    st.markdown("<div style='text-align: center; padding-top: 28px; font-weight: bold;'>～</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; padding-top: 30px; font-weight: bold;'>～</div>", unsafe_allow_html=True)
                 with ct3:
                     max_t = st.number_input("",min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
             
@@ -790,7 +790,6 @@ def main():
                 try:
                     df_c = clan_df.copy()
                     
-                    # 列名の取得 (ヘッダー付き or 無し対応)
                     if 'CREATED_AT' in df_c.columns:
                         col_created = 'CREATED_AT'
                         col_clan = 'CLAN_NAME' if 'CLAN_NAME' in df_c.columns else df_c.columns[0]
@@ -800,14 +799,11 @@ def main():
                         col_created = df_c.columns[1]
                         col_op = df_c.columns[2]
                         
-                    # 日時変換 & 無効値除去
                     df_c['DT'] = pd.to_datetime(df_c[col_created], errors='coerce')
                     df_c = df_c.dropna(subset=['DT'])
                     
-                    # 入隊(join_clan) / 除隊(leave_clan) のみに絞り込み
                     df_c = df_c[df_c[col_op].astype(str).str.strip().isin(['join_clan', 'leave_clan'])]
                     
-                    # 記号マップ (入隊: ＞ / 除隊: ＜)
                     op_symbol_map = {
                         "join_clan": "＞",
                         "leave_clan": "＜"
@@ -817,11 +813,12 @@ def main():
                     df_c['クラン名'] = df_c[col_clan].fillna("-").astype(str)
                     df_c['年月日'] = df_c['DT'].dt.strftime("%Y-%m-%d")
                     
-                    # 必要列抽出 & 重複削除
-                    result_df = df_c[['区分', 'クラン名', '年月日']].drop_duplicates()
-                    
-                    # 日付降順に並べ替え
+                    # 【変更】順番を「区分 → 年月日 → クラン名」に変更して重複削除
+                    result_df = df_c[['区分', '年月日', 'クラン名']].drop_duplicates()
                     result_df = result_df.sort_values(by='年月日', ascending=False)
+                    
+                    # 【変更】ヘッダー文字（区分、年月日、クラン名）を削除（空文字化）
+                    result_df.columns = ['', '', '']
                     
                     if not result_df.empty:
                         st.dataframe(result_df, use_container_width=True, hide_index=True)
