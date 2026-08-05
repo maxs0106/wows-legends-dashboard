@@ -844,16 +844,8 @@ def main():
                     col_start = sess_df.columns[0]
                     col_end = sess_df.columns[1]
                     
-                    start_dt = pd.to_datetime(sess_df[col_start], errors='coerce')
-                    end_dt = pd.to_datetime(sess_df[col_end], errors='coerce')
-                    
-                    st.write(sess_df.head())
-
-                    st.write(start_dt.head())
-                    st.write(end_dt.head())
-                    
-                    st.write(durations.head())
-                    st.write(total_seconds)
+                    start_dt = pd.to_datetime(sess_df[col_start],format="%Y-%m-%d %H:%M:%S.%f", errors='coerce')
+                    end_dt = pd.to_datetime(sess_df[col_end],format="%Y-%m-%d %H:%M:%S.%f", errors='coerce')
                                         
                     # データが格納されているすべての行について差分（秒）を計算して合計
                     durations = (end_dt - start_dt).dt.total_seconds().dropna()
