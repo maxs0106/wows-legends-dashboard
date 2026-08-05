@@ -581,25 +581,24 @@ def main():
             fig = make_subplots(rows=1, cols=3, subplot_titles=("勝率推移", "平均ダメージ推移", "平均経験値推移"))
             
             # マウスオーバー時のみ表示 (mode='lines+markers', hovertemplate)
-            tr1, tr2, tr3 = st.columns(3)
-            with tr1:
-                fig.add_trace(go.Scatter(
-                    x=trend_df["日付_obj"], y=trend_df["勝率"], mode='lines+markers', name="勝率",
-                    hovertemplate="%{x|%Y/%m/%d}<br>勝率: %{y:.2f}%<extra></extra>",
-                    line=dict(color="#00f2fe")
-                ), row=1, col=1)
-            with tr2:
-                fig.add_trace(go.Scatter(
-                    x=trend_df["日付_obj"], y=trend_df["平均ダメージ"], mode='lines+markers', name="平均ダメ",
-                    hovertemplate="%{x|%Y/%m/%d}<br>平均ダメージ: %{y:,.0f}<extra></extra>",
-                    line=dict(color="#38bdf8")
-                ), row=1, col=2)
-            with tr3:
-                fig.add_trace(go.Scatter(
-                    x=trend_df["日付_obj"], y=trend_df["平均経験値"], mode='lines+markers', name="平均EXP",
-                    hovertemplate="%{x|%Y/%m/%d}<br>平均経験値: %{y:,.0f}<extra></extra>",
-                    line=dict(color="#fbbf24")
-                ), row=1, col=3)
+            
+            fig.add_trace(go.Scatter(
+                x=trend_df["日付_obj"], y=trend_df["勝率"], mode='lines+markers', name="勝率",
+                hovertemplate="%{x|%Y/%m/%d}<br>勝率: %{y:.2f}%<extra></extra>",
+                line=dict(color="#00f2fe")
+            ), row=1, col=1)
+
+            fig.add_trace(go.Scatter(
+                x=trend_df["日付_obj"], y=trend_df["平均ダメージ"], mode='lines+markers', name="平均ダメ",
+                hovertemplate="%{x|%Y/%m/%d}<br>平均ダメージ: %{y:,.0f}<extra></extra>",
+                line=dict(color="#38bdf8")
+            ), row=1, col=2)
+
+            fig.add_trace(go.Scatter(
+                x=trend_df["日付_obj"], y=trend_df["平均経験値"], mode='lines+markers', name="平均EXP",
+                hovertemplate="%{x|%Y/%m/%d}<br>平均経験値: %{y:,.0f}<extra></extra>",
+                line=dict(color="#fbbf24")
+            ), row=1, col=3)
             
             fig.update_xaxes(type='date', tickformat='%Y/%m/%d', gridcolor="#1e293b")
             fig.update_yaxes(gridcolor="#1e293b")
