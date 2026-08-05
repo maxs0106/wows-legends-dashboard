@@ -672,8 +672,8 @@ def main():
             c_f1, c_f2 = st.columns([3, 1])
             
             with c_f1:
-                sel_types = st.pills("艦種", ["すべて", "駆逐艦", "巡洋艦", "戦艦", "空母"], default=["すべて"], selection_mode="multi", key="pills_types", label_visibility="collapsed")
-                sel_nations = st.pills("国家", ["すべて"] + NATION_ORDER, default=["すべて"], selection_mode="multi", key="pills_nations", label_visibility="collapsed")
+                sel_types = st.pills("艦種", ["すべて", "駆逐艦", "巡洋艦", "戦艦", "空母"], selection_mode="multi", key="pills_types", label_visibility="collapsed")
+                sel_nations = st.pills("国家", ["すべて"] + NATION_ORDER, selection_mode="multi", key="pills_nations", label_visibility="collapsed")
             
             with c_f2:
                 st.caption("表示Tier範囲 ")
