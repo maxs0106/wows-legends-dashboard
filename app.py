@@ -685,49 +685,55 @@ def main():
                 with ct3:
                     max_t = st.number_input("",min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
             
-            # マスク処理
-            mask = pd.Series(True, index=l_ships.index)
-            
-            # 艦種フィルタ
-            if sel_types and "すべて" not in sel_types:
-                mask = mask & (l_ships['_SHIP_TYPE'].isin(sel_types))
+            has_selection = bool(sel_types) or bool(sel_nations)
+
+            if has_selection:
+                # マスク処理
+                mask = pd.Series(True, index=l_ships.index)
                 
-            # 国家フィルタ
-            if sel_nations and "すべて" not in sel_nations:
-                mask = mask & (l_ships['_NATION'].isin(sel_nations))
+                # 艦種フィルタ
+                if "すべて" not in sel_types:
+                    mask = mask & (l_ships['_SHIP_TYPE'].isin(sel_types))
+                    
+                # 国家フィルタ
+                if "すべて" not in sel_nations:
+                    mask = mask & (l_ships['_NATION'].isin(sel_nations))
+                    
+                # ティア範囲フィルタ
+                min_val = min(min_t, max_t)
+                max_val = max(min_t, max_t)
+                allowed_tiers = [VAL_TIER_MAP[v] for v in range(min_val, max_val + 1) if v in VAL_TIER_MAP]
+                mask = mask & (l_ships['_ESTIMATED_TIER'].isin(allowed_tiers))
+                    
+                query_df = l_ships[mask].sort_values(by="BATTLES_COUNT", ascending=False)
                 
-            # ティア範囲フィルタ
-            min_val = min(min_t, max_t)
-            max_val = max(min_t, max_t)
-            allowed_tiers = [VAL_TIER_MAP[v] for v in range(min_val, max_val + 1) if v in VAL_TIER_MAP]
-            mask = mask & (l_ships['_ESTIMATED_TIER'].isin(allowed_tiers))
-                
-            query_df = l_ships[mask].sort_values(by="BATTLES_COUNT", ascending=False)
-            
-            if not query_df.empty:
-                df_show = query_df[['_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME', 
-                                    'BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']].copy()
-                
-                df_show['勝率(%)'] = (df_show['WINS'] / df_show['BATTLES_COUNT'] * 100).round(2)
-                df_show['平均経験値'] = (df_show['ORIGINAL_EXP'] / df_show['BATTLES_COUNT']).round(0)
-                df_show['平均ダメージ'] = (df_show['DAMAGE_DEALT'] / df_show['BATTLES_COUNT']).round(0)
-                df_show['キルデス比'] = (df_show['FRAGS'] / (df_show['BATTLES_COUNT'] - df_show['SURVIVED']).replace(0, 1)).round(2)
-                
-                df_show = df_show[['_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME', 'BATTLES_COUNT', '勝率(%)', '平均経験値', '平均ダメージ', 'キルデス比']]
-                df_show.columns = ['国家', '艦種', 'ティア', '艦艇名', '戦闘数', '勝率(%)', '平均経験値', '平均ダメージ', 'キルデス比']
-                
-                st.dataframe(
-                    df_show.style.format({
-                        '勝率(%)': '{:.2f}%',
-                        '平均経験値': '{:,.0f}',
-                        '平均ダメージ': '{:,.0f}',
-                        'キルデス比': '{:.2f}'
-                    }),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                if not query_df.empty:
+                    df_show = query_df[['_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME', 
+                                        'BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']].copy()
+                    
+                    df_show['勝率(%)'] = (df_show['WINS'] / df_show['BATTLES_COUNT'] * 100).round(2)
+                    df_show['平均経験値'] = (df_show['ORIGINAL_EXP'] / df_show['BATTLES_COUNT']).round(0)
+                    df_show['平均ダメージ'] = (df_show['DAMAGE_DEALT'] / df_show['BATTLES_COUNT']).round(0)
+                    df_show['キルデス比'] = (df_show['FRAGS'] / (df_show['BATTLES_COUNT'] - df_show['SURVIVED']).replace(0, 1)).round(2)
+                    
+                    df_show = df_show[['_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME', 'BATTLES_COUNT', '勝率(%)', '平均経験値', '平均ダメージ', 'キルデス比']]
+                    df_show.columns = ['国家', '艦種', 'ティア', '艦艇名', '戦闘数', '勝率(%)', '平均経験値', '平均ダメージ', 'キルデス比']
+                    
+                    st.dataframe(
+                        df_show.style.format({
+                            '勝率(%)': '{:.2f}%',
+                            '平均経験値': '{:,.0f}',
+                            '平均ダメージ': '{:,.0f}',
+                            'キルデス比': '{:.2f}'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("条件に一致する艦艇データがありません。")
             else:
-                st.info("条件に一致する艦艇データがありません。")
+                # 初期状態（何も選択されていない場合）のメッセージ
+                st.info("艦種または国家を選択するとデータが表示されます。")
         else:
             st.info("データがありません。")
 
