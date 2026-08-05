@@ -456,7 +456,7 @@ def main():
     st.markdown(f'<div class="game-header-container"><div class="game-title">WOWSL Legends Dashboard</div><div class="player-clan-info">{player_display_string}</div></div>', unsafe_allow_html=True)
 
     t_summary, t_structural, t_ship, t_best, t_clan = st.tabs([
-        "総合戦績 (マトリクス)", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
+        "総合戦績", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
     ])
 
     # ------------------------------------------
