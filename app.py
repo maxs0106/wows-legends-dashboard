@@ -676,15 +676,27 @@ def main():
                 sel_nations = st.pills("国家", ["すべて"] + NATION_ORDER, default=["すべて"], selection_mode="multi", key="pills_nations", label_visibility="collapsed")
             
             with c_f2:
-                st.caption("表示Tier範囲 ")
-                ct1, ct2, ct3 = st.columns(3)
-                with ct1:
-                    min_t = st.number_input("",min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
-                with ct2:
-                    st.subheader("～")
-                with ct3:
-                    max_t = st.number_input("",min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
-            
+                # ------------------------------------------
+                # 艦艇別詳細タブ：フィルター・ティア選択
+                # ------------------------------------------
+                # 各フィルターの説明テキスト（st.captionやhelp等）を削除したUIレイアウト例
+                
+                tier_list = [1, 2, 3, 4, 5, 6, 7, 8, "★"]  # 該当のティアリスト
+                
+                # ティア選択（「Tier」表示 ＋ 「～」で下限・上限を挟む構図）
+                c_tier_min, c_tilde, c_tier_max = st.columns([4, 1, 4])
+                
+                with c_tier_min:
+                    # 「下限」を削除し「Tier」に変更
+                    min_tier = st.selectbox("Tier", tier_list, index=0)
+                
+                with c_tilde:
+                    # 間をつなぐ「～」を表示
+                    st.markdown("<div style='text-align: center; padding-top: 28px; font-weight: bold;'>～</div>", unsafe_allow_html=True)
+                
+                with c_tier_max:
+                    # 「上限」テキストを削除しラベルを非表示化
+                    max_tier = st.selectbox("", tier_list, index=len(tier_list)-1, label_visibility="collapsed")
             # マスク処理
             mask = pd.Series(True, index=l_ships.index)
             
