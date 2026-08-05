@@ -677,7 +677,7 @@ def main():
             
             with c_f2:
                 st.caption("表示Tier範囲 ")
-                ct1, ct2, ct3 = st.columns(4,1,4)
+                ct1, ct2, ct3 = st.columns([4,1,4])
                 with ct1:
                     min_t = st.number_input("",min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
                 with ct2:
