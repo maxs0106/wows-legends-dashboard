@@ -785,50 +785,49 @@ def main():
         
         # 🛡️ クラン履歴表示
         with c1:
-            st.markdown('<div class="chart-section-title">🛡️ クラン入退隊・役職履歴</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-section-title">🛡️ クラン入退隊履歴</div>', unsafe_allow_html=True)
             clan_df = data["clans"]
             if not clan_df.empty:
                 try:
                     df_c = clan_df.copy()
                     
                     # 列名の取得 (ヘッダー付き or 無し対応)
-                    # 想定構造: "CLAN_NAME", "CREATED_AT", "OPERATION_NAME", "ROLE_NAME"
                     if 'CREATED_AT' in df_c.columns:
                         col_created = 'CREATED_AT'
                         col_clan = 'CLAN_NAME' if 'CLAN_NAME' in df_c.columns else df_c.columns[0]
                         col_op = 'OPERATION_NAME' if 'OPERATION_NAME' in df_c.columns else df_c.columns[2]
-                        col_role = 'ROLE_NAME' if 'ROLE_NAME' in df_c.columns else df_c.columns[3]
                     else:
                         col_clan = df_c.columns[0]
                         col_created = df_c.columns[1]
                         col_op = df_c.columns[2]
-                        col_role = df_c.columns[3]
                         
+                    # 日時変換 & 無効値除去
                     df_c['DT'] = pd.to_datetime(df_c[col_created], errors='coerce')
-                    df_c = df_c.dropna(subset=['DT']).sort_values(by='DT', ascending=False)
+                    df_c = df_c.dropna(subset=['DT'])
                     
-                    op_map = {
-                        "join_clan": "入隊",
-                        "leave_clan": "除隊",
-                        "change_role": "役職変更"
+                    # 入隊(join_clan) / 除隊(leave_clan) のみに絞り込み
+                    df_c = df_c[df_c[col_op].astype(str).str.strip().isin(['join_clan', 'leave_clan'])]
+                    
+                    # 記号マップ (入隊: ＞ / 除隊: ＜)
+                    op_symbol_map = {
+                        "join_clan": "＞",
+                        "leave_clan": "＜"
                     }
                     
-                    records = []
-                    for _, row in df_c.iterrows():
-                        op_raw = str(row[col_op]).strip() if pd.notna(row[col_op]) else ""
-                        op_label = op_map.get(op_raw, op_raw)
-                        
-                        records.append({
-                            "日時": row['DT'].strftime("%Y-%m-%d %H:%M:%S"),
-                            "クラン名": str(row[col_clan]) if pd.notna(row[col_clan]) else "-",
-                            "操作": op_label,
-                            "役職": str(row[col_role]) if pd.notna(row[col_role]) else "-"
-                        })
-                        
-                    if records:
-                        st.dataframe(pd.DataFrame(records), use_container_width=True, hide_index=True)
+                    df_c['区分'] = df_c[col_op].astype(str).str.strip().map(op_symbol_map)
+                    df_c['クラン名'] = df_c[col_clan].fillna("-").astype(str)
+                    df_c['年月日'] = df_c['DT'].dt.strftime("%Y-%m-%d")
+                    
+                    # 必要列抽出 & 重複削除
+                    result_df = df_c[['区分', 'クラン名', '年月日']].drop_duplicates()
+                    
+                    # 日付降順に並べ替え
+                    result_df = result_df.sort_values(by='年月日', ascending=False)
+                    
+                    if not result_df.empty:
+                        st.dataframe(result_df, use_container_width=True, hide_index=True)
                     else:
-                        st.info("有効なクラン履歴データがありません。")
+                        st.info("有効な入退隊履歴データがありません。")
                 except Exception as e:
                     st.error(f"クランデータの解析中にエラーが発生しました: {e}")
             else:
@@ -840,18 +839,16 @@ def main():
             sess_df = data["game_sessions"]
             if not sess_df.empty:
                 try:
-                    # 想定構造: "2021-04-04 13:42:56.000", "2021-04-04 14:25:36.000", "IPアドレス"
                     col_start = sess_df.columns[0]
                     col_end = sess_df.columns[1]
                     
                     start_dt = pd.to_datetime(sess_df[col_start], errors='coerce')
                     end_dt = pd.to_datetime(sess_df[col_end], errors='coerce')
                     
-                    # 差分（秒）を計算
-                    durations = (end_dt - start_dt).dt.total_seconds()
-                    valid_durations = durations[durations > 0]
+                    # データが格納されているすべての行について差分（秒）を計算して合計
+                    durations = (end_dt - start_dt).dt.total_seconds().dropna()
                     
-                    total_seconds = valid_durations.sum()
+                    total_seconds = durations.sum()
                     if total_seconds > 0:
                         hours = int(total_seconds // 3600)
                         minutes = int((total_seconds % 3600) // 60)
