@@ -848,9 +848,9 @@ def main():
                     end_dt = pd.to_datetime(sess_df[col_end],format="%Y-%m-%d %H:%M:%S.%f", errors='coerce')
                                         
                     # データが格納されているすべての行について差分（秒）を計算して合計
-                    durations = (end_dt - start_dt).dt.total_seconds().dropna()
+                    durations = (end_dt - start_dt)
                     
-                    total_seconds = durations.sum()
+                    total_seconds = durations.dt.total_seconds().sum()
                     if total_seconds > 0:
                         hours = int(total_seconds // 3600)
                         minutes = int((total_seconds % 3600) // 60)
