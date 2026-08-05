@@ -679,9 +679,9 @@ def main():
                 st.caption("表示Tier範囲 ")
                 ct1, ct2 = st.columns(2)
                 with ct1:
-                    min_t = st.number_input(min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
+                    min_t = st.number_input(,min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
                 with ct2:
-                    max_t = st.number_input(min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
+                    max_t = st.number_input(,min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
             
             # マスク処理
             mask = pd.Series(True, index=l_ships.index)
