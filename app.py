@@ -67,7 +67,7 @@ CSS_STYLE = """
         text-transform: uppercase;
     }
 
-    /* 📊 総合戦績・全テーブル共通：横スクロール・列固定マトリクス */
+    /* 📊 マトリクス共通デザイン */
     .matrix-scroll-wrapper {
         position: relative;
         width: 100%;
@@ -89,7 +89,6 @@ CSS_STYLE = """
         border-right: 1px solid #1e293b;
         min-width: 150px;
         max-width: 180px;
-        box-sizing: border-box;
         color: #d1d5db;
     }
     .matrix-table th {
@@ -97,20 +96,16 @@ CSS_STYLE = """
         color: #ffffff;
         font-weight: 700;
     }
-    /* 左端列の固定スタイル */
     .matrix-table th.sticky-indicator, .matrix-table td.sticky-indicator {
         position: sticky;
         left: 0;
         background-color: #0f172a !important;
         z-index: 10;
         text-align: left;
-        min-width: 180px;
-        max-width: 180px;
         border-right: 2px solid #00f2fe;
         font-weight: 700;
         color: #ffffff;
     }
-    /* Tab1用の全期間列固定スタイル */
     .matrix-table th.sticky-lifetime, .matrix-table td.sticky-lifetime {
         position: sticky;
         left: 180px;
@@ -120,7 +115,6 @@ CSS_STYLE = """
         border-right: 2px solid #1e293b;
     }
     
-    /* 🚢 艦艇名デザイン */
     .game-ship-name {
         font-family: 'Courier New', monospace;
         font-weight: 700;
@@ -129,7 +123,6 @@ CSS_STYLE = """
         padding: 4px 10px;
         border: 1px solid #1e293b;
     }
-    
     .chart-section-title {
         font-size: 1.3rem;
         font-weight: 700;
@@ -154,7 +147,7 @@ CSV_MAPPING = {
     "WOWSL_Account_Statistics.csv": "account_stats",
     "WOWSL_Battle_Types_Statistics.csv": "battle_types",
     "WOWSL_Ship_Statistics_By_Type.csv": "ship_stats",
-    "Account_Info.csv": "account_info"   
+    "Account_Info.csv": "account_info"    
 }
 
 IMAGE_NATION_MAP = {
@@ -166,29 +159,15 @@ IMAGE_NATION_MAP = {
 IMAGE_CLASS_MAP = {"a": "空母", "b": "戦艦", "c": "巡洋艦", "d": "駆逐艦"}
 
 BATTLE_TYPE_MAP = {
-    1: {"mode": "通常", "team": "総合"},
-    2: {"mode": "AI", "team": "総合"},
-    3: {"mode": "通常", "team": "ソロ"},
-    4: {"mode": "通常", "team": "2人分隊"},
-    5: {"mode": "通常", "team": "3人分隊"}, 
-    6: {"mode": "AI", "team": "ソロ"},
-    7: {"mode": "AI", "team": "2人分隊"},
-    8: {"mode": "AI", "team": "3人分隊"},
-    9: {"mode": "ランク", "team": "ソロ"},
-    10: {"mode": "ランク", "team": "2人分隊"},
-    11: {"mode": "ランク", "team": "3人分隊"},
-    17: {"mode": "アリーナ", "team": "ソロ"},
-    18: {"mode": "アリーナ", "team": "2人分隊"},
-    19: {"mode": "アリーナ", "team": "3人分隊"},
-    20: {"mode": "闘争", "team": "ソロ"},
-    21: {"mode": "闘争", "team": "2人分隊"},
-    22: {"mode": "闘争", "team": "3人分隊"},
-    23: {"mode": "アーケード", "team": "総合"},
-    24: {"mode": "アーケード", "team": "ソロ"},
-    25: {"mode": "アーケード", "team": "2人分隊"},
-    26: {"mode": "アーケード", "team": "3人分隊"},
-    27: {"mode": "クラン戦", "team": "総合"},
-    28: {"mode": "軍記", "team": "総合"}
+    1: {"mode": "通常", "team": "総合"}, 2: {"mode": "AI", "team": "総合"},
+    3: {"mode": "通常", "team": "ソロ"}, 4: {"mode": "通常", "team": "2人分隊"}, 5: {"mode": "通常", "team": "3人分隊"}, 
+    6: {"mode": "AI", "team": "ソロ"}, 7: {"mode": "AI", "team": "2人分隊"}, 8: {"mode": "AI", "team": "3人分隊"},
+    9: {"mode": "ランク", "team": "ソロ"}, 10: {"mode": "ランク", "team": "2人分隊"}, 11: {"mode": "ランク", "team": "3人分隊"},
+    17: {"mode": "アリーナ", "team": "ソロ"}, 18: {"mode": "アリーナ", "team": "2人分隊"}, 19: {"mode": "アリーナ", "team": "3人分隊"},
+    20: {"mode": "闘争", "team": "ソロ"}, 21: {"mode": "闘争", "team": "2人分隊"}, 22: {"mode": "闘争", "team": "3人分隊"},
+    23: {"mode": "アーケード", "team": "総合"}, 24: {"mode": "アーケード", "team": "ソロ"},
+    25: {"mode": "アーケード", "team": "2人分隊"}, 26: {"mode": "アーケード", "team": "3人分隊"},
+    27: {"mode": "クラン戦", "team": "総合"}, 28: {"mode": "軍記", "team": "総合"}
 }
 
 NATION_ORDER = [
@@ -196,8 +175,7 @@ NATION_ORDER = [
     "イタリア", "ヨーロッパ", "パンアジア", "パンヨーロッパ", "パンアメリカ", "オランダ", "スペイン"
 ]
 
-# ★ (レジェンダリー)表記を順序の最後に固定
-TIER_ORDER = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "★ (Legend)"]
+TIER_ORDER = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "★"]
 
 # ==========================================
 # 3. データ処理エンジン（関数群）
@@ -207,18 +185,18 @@ def load_ship_reference() -> Dict[str, Tuple[str, str]]:
         try:
             df = pd.read_csv("ship_id.csv")
             return dict(zip(df['id'].astype(str), zip(df['name'], df['Tier'])))
-        except Exception as e:
-            st.sidebar.warning(f"ship_id.csvの読み込みに失敗しました: {e}")
+        except Exception:
+            pass
     return {}
     
 def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tuple[str, str, str, str]:
     clean_vname = str(vehicle_name).strip()
     if clean_vname in ship_map:
         display_name, raw_tier = ship_map[clean_vname]
-        # レジェンダリー層の表記ゆれ（★, L, Legend, Legendary, 11等）を吸収して「★ (Legend)」に統一
         str_tier = str(raw_tier).strip()
+        # レジェンダリー表示をすべて★に統一
         if str_tier in ["★", "L", "Legend", "Legendary", "11"]:
-            tier = "★ (Legend)"
+            tier = "★"
         else:
             tier = str_tier
     else:
@@ -237,6 +215,7 @@ def parse_ship_id(vehicle_name: str, ship_map: Dict[str, Tuple[str, str]]) -> Tu
     return nation, ship_class, str(tier), display_name
 
 def get_snapshot_date(df: pd.DataFrame, file_name: str) -> datetime:
+    # 省略せず元のロジックを保持
     if "WOWSL_Account_Statistics.csv" in file_name and not df.empty:
         if 'UPDATED_AT' in df.columns:
             valid_series = pd.to_numeric(df['UPDATED_AT'], errors='coerce').dropna()
@@ -371,10 +350,8 @@ def calc_period_diff_metrics(df_new: pd.DataFrame, df_old: pd.DataFrame) -> Dict
 
 def generate_matrix_html(headers: List[str], rows_data: List[Tuple[str, List[Any]]], formats: List[str]) -> str:
     html = '<div class="matrix-scroll-wrapper"><table class="matrix-table"><thead><tr><th class="sticky-indicator">分類・項目</th>'
-    for h in headers:
-        html += f'<th>{h}</th>'
+    for h in headers: html += f'<th>{h}</th>'
     html += '</tr></thead><tbody>'
-    
     for row_title, values in rows_data:
         html += f'<tr><td class="sticky-indicator">{row_title}</td>'
         for val, fmt in zip(values, formats):
@@ -455,66 +432,81 @@ def main():
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
     st.markdown(f'<div class="game-header-container"><div class="game-title">WOWSL Legends Dashboard</div><div class="player-clan-info">{player_display_string}</div></div>', unsafe_allow_html=True)
 
-    t_summary, t_structural, t_ship, t_best, t_clan = st.tabs([
-        "総合戦績", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "クランデータ"
+    # ==========================================
+    # 全タブ共通：モード・部隊形式の選択とデータ生成
+    # ==========================================
+    bt_df = data["battle_types"]
+    
+    if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
+    current_mode = st.session_state.sel_mode
+
+    st.markdown('<div class="mode-selection-header">■ STEP1: モード選択</div>', unsafe_allow_html=True)
+    mode_order = ["通常", "AI", "ランク", "アリーナ", "闘争", "アーケード", "クラン戦", "軍記"]
+    m_cols = st.columns(len(mode_order))
+    for idx, m_name in enumerate(mode_order):
+        with m_cols[idx]:
+            if st.button(m_name, key=f"btn_m_{m_name}", use_container_width=True, type="primary" if current_mode == m_name else "secondary"):
+                st.session_state.sel_mode = m_name
+                st.session_state.sel_team = "総合"
+                st.rerun()
+
+    st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
+    team_options = ["総合"] if current_mode in ["クラン戦", "軍記"] else ["総合", "ソロ", "2人分隊", "3人分隊"]
+    if 'sel_team' not in st.session_state or st.session_state.sel_team not in team_options:
+        st.session_state.sel_team = "総合"
+        
+    t_cols = st.columns(4)
+    for idx, t_name in enumerate(team_options):
+        if idx < len(team_options):
+            with t_cols[idx]:
+                if st.button(t_name, key=f"btn_t_{t_name}", use_container_width=True, type="primary" if st.session_state.sel_team == t_name else "secondary"):
+                    st.session_state.sel_team = t_name
+                    st.rerun()
+
+    # --- 選択されたモードによるデータフィルタリング ---
+    DIRECT_MODE_MODES = ["通常", "AI", "アーケード", "クラン戦", "軍記"]
+    sum_cols = ['BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']
+    
+    if st.session_state.sel_team == "総合":
+        if current_mode in DIRECT_MODE_MODES:
+            target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] == "総合"), None)
+            mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
+            mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
+        else:
+            target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] in ["ソロ", "2人分隊", "3人分隊"]]
+            raw_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
+            mode_bt_df = raw_bt_df.groupby('_SNAPSHOT_DATE')[sum_cols].sum().reset_index() if not raw_bt_df.empty else pd.DataFrame()
+            if not mode_bt_df.empty: mode_bt_df['TYPE'] = 0
+            
+            raw_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
+            if not raw_ship_df.empty:
+                group_keys = ['_SNAPSHOT_DATE', 'VEHICLE_NAME', '_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME']
+                # 追加カラムの維持用
+                extra_cols = [c for c in raw_ship_df.columns if c.startswith('MAX_')]
+                agg_dict = {col: 'sum' for col in sum_cols}
+                for ec in extra_cols: agg_dict[ec] = 'max'
+                mode_filtered_ship_df = raw_ship_df.groupby(group_keys).agg(agg_dict).reset_index()
+                mode_filtered_ship_df['TYPE'] = 0
+            else:
+                mode_filtered_ship_df = pd.DataFrame()
+    else:
+        target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
+        mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
+        mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
+
+    st.markdown("<hr style='border:1px solid #1e293b; margin: 25px 0;'>", unsafe_allow_html=True)
+
+    # ==========================================
+    # タブ生成
+    # ==========================================
+    t_summary, t_structural, t_ship, t_best, t_other = st.tabs([
+        "総合戦績", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "その他"
     ])
 
     # ------------------------------------------
     # Tab 1: 総合戦績
     # ------------------------------------------
     with t_summary:
-        bt_df = data["battle_types"]
-        if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
-        current_mode = st.session_state.sel_mode
-
-        st.markdown('<div class="mode-selection-header">■ STEP1: モード選択</div>', unsafe_allow_html=True)
-        mode_order = ["通常", "AI", "ランク", "アリーナ", "闘争", "アーケード", "クラン戦", "軍記"]
-        m_cols = st.columns(len(mode_order))
-        for idx, m_name in enumerate(mode_order):
-            with m_cols[idx]:
-                if st.button(m_name, key=f"btn_m_{m_name}", use_container_width=True, type="primary" if current_mode == m_name else "secondary"):
-                    st.session_state.sel_mode = m_name
-                    st.session_state.sel_team = "総合"
-                    st.rerun()
-
-        st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
-        team_options = ["総合"] if current_mode in ["クラン戦", "軍記"] else ["総合", "ソロ", "2人分隊", "3人分隊"]
-        if 'sel_team' not in st.session_state or st.session_state.sel_team not in team_options:
-            st.session_state.sel_team = "総合"
-            
-        t_cols = st.columns(4)
-        for idx, t_name in enumerate(team_options):
-            with t_cols[idx]:
-                if st.button(t_name, key=f"btn_t_{t_name}", use_container_width=True, type="primary" if st.session_state.sel_team == t_name else "secondary"):
-                    st.session_state.sel_team = t_name
-                    st.rerun()
-
-        DIRECT_MODE_MODES = ["通常", "AI", "アーケード", "クラン戦", "軍記"]
-        sum_cols = ['BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']
-        
-        if st.session_state.sel_team == "総合":
-            if current_mode in DIRECT_MODE_MODES:
-                target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] == "総合"), None)
-                mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
-                mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
-            else:
-                target_type_codes = [tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] in ["ソロ", "2人分隊", "3人分隊"]]
-                raw_bt_df = bt_df[bt_df['TYPE'].isin(target_type_codes)] if not bt_df.empty else pd.DataFrame()
-                mode_bt_df = raw_bt_df.groupby('_SNAPSHOT_DATE')[sum_cols].sum().reset_index() if not raw_bt_df.empty else pd.DataFrame()
-                if not mode_bt_df.empty: mode_bt_df['TYPE'] = 0
-                
-                raw_ship_df = ship_df[ship_df['TYPE'].isin(target_type_codes)] if not ship_df.empty else pd.DataFrame()
-                if not raw_ship_df.empty:
-                    group_keys = ['_SNAPSHOT_DATE', 'VEHICLE_NAME', '_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME']
-                    mode_filtered_ship_df = raw_ship_df.groupby(group_keys)[sum_cols].sum().reset_index()
-                    mode_filtered_ship_df['TYPE'] = 0
-                else:
-                    mode_filtered_ship_df = pd.DataFrame()
-        else:
-            target_type_code = next((tid for tid, meta in BATTLE_TYPE_MAP.items() if meta["mode"] == current_mode and meta["team"] == st.session_state.sel_team), None)
-            mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
-            mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
-        
         matrix_columns = {}
         if not mode_bt_df.empty:
             max_date = mode_bt_df['_SNAPSHOT_DATE'].max()
@@ -559,12 +551,11 @@ def main():
         html_table += '</tbody></table></div>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-        st.markdown('<div class="chart-section-title">📈 通常戦（総合データ）日程別推移トレンド</div>', unsafe_allow_html=True)
-        normal_total_bt = bt_df[bt_df['TYPE'] == 1] if not bt_df.empty else pd.DataFrame()
+        st.markdown('<div class="chart-section-title">📈 選択モード 日程別推移トレンド</div>', unsafe_allow_html=True)
         trend_records = []
-        if not normal_total_bt.empty:
+        if not mode_bt_df.empty:
             for d in unique_dates:
-                snap_df = normal_total_bt[normal_total_bt['_SNAPSHOT_DATE'] == d]
+                snap_df = mode_bt_df[mode_bt_df['_SNAPSHOT_DATE'] == d]
                 if not snap_df.empty:
                     kpi = calc_metrics_from_row(snap_df)
                     if kpi["battles"] is not None:
@@ -572,7 +563,7 @@ def main():
         
         trend_df = pd.DataFrame(trend_records)
         if not trend_df.empty:
-            fig = make_subplots(rows=1, cols=3, subplot_titles=("通常戦 勝率推移", "通常戦 平均ダメージ推移", "通常戦 平均経験値推移"))
+            fig = make_subplots(rows=1, cols=3, subplot_titles=("勝率推移", "平均ダメージ推移", "平均経験値推移"))
             fig.add_trace(go.Scatter(x=trend_df["日付_obj"], y=trend_df["勝率"], mode='lines+markers+text', name="勝率", text=[f"{v}%" for v in trend_df["勝率"]], line=dict(color="#00f2fe")), row=1, col=1)
             fig.add_trace(go.Scatter(x=trend_df["日付_obj"], y=trend_df["平均ダメージ"], mode='lines+markers+text', name="平均ダメ", text=[f"{int(v):,}" for v in trend_df["平均ダメージ"]], line=dict(color="#38bdf8")), row=1, col=2)
             fig.add_trace(go.Scatter(x=trend_df["日付_obj"], y=trend_df["平均経験値"], mode='lines+markers+text', name="平均EXP", text=[f"{int(v):,}" for v in trend_df["平均経験値"]], line=dict(color="#fbbf24")), row=1, col=3)
@@ -581,33 +572,41 @@ def main():
             fig.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", showlegend=False, height=400, margin=dict(l=20, r=20, t=50, b=20))
             st.plotly_chart(fig, use_container_width=True)
 
-        # 📊 国家・艦種戦闘数分布
-        st.markdown('<div class="chart-section-title">📊 通常戦（総合データ）国籍・艦種戦闘数分布</div>', unsafe_allow_html=True)
-        normal_ship_df = ship_df[ship_df['TYPE'] == 1] if not ship_df.empty else pd.DataFrame()
-        
-        if not normal_ship_df.empty:
-            l_date = normal_ship_df['_SNAPSHOT_DATE'].max()
-            l_ships_latest = normal_ship_df[normal_ship_df['_SNAPSHOT_DATE'] == l_date]
-            sc1, sc2 = st.columns(2)
+        st.markdown('<div class="chart-section-title">📊 選択モード 戦闘数分布（縦・横入れ替え）</div>', unsafe_allow_html=True)
+        if not mode_filtered_ship_df.empty:
+            l_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
+            l_ships_latest = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == l_date]
+            
+            sc1, sc2, sc3 = st.columns(3)
             
             with sc1:
+                # 縦軸と横軸を入れ替え（orientation='v'）
                 nat_data = l_ships_latest.groupby("_NATION")["BATTLES_COUNT"].sum().reset_index()
                 nat_data["_NATION"] = pd.Categorical(nat_data["_NATION"], categories=NATION_ORDER, ordered=True)
-                nat_data = nat_data.dropna(subset=["_NATION"]).sort_values(by="_NATION", ascending=False)
-                
-                f_nat_bar = px.bar(nat_data, x="BATTLES_COUNT", y="_NATION", orientation='h', text="BATTLES_COUNT",
-                                   title="国家別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT": "戦闘数", "_NATION": "国家"})
-                f_nat_bar.update_traces(marker_color="#00f2fe", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
-                f_nat_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
+                nat_data = nat_data.dropna(subset=["_NATION"]).sort_values(by="_NATION")
+                f_nat_bar = px.bar(nat_data, x="_NATION", y="BATTLES_COUNT", text="BATTLES_COUNT",
+                                   title="国家別戦闘数", labels={"BATTLES_COUNT": "戦闘数", "_NATION": "国家"})
+                f_nat_bar.update_traces(marker_color="#00f2fe", texttemplate='%{text:,}', textposition='outside')
+                f_nat_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14")
                 st.plotly_chart(f_nat_bar, use_container_width=True)
                 
             with sc2:
-                typ_data = l_ships_latest.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index().sort_values(by="BATTLES_COUNT", ascending=True)
-                f_typ_bar = px.bar(typ_data, x="BATTLES_COUNT", y="_SHIP_TYPE", orientation='h', text="BATTLES_COUNT",
-                                   title="艦種別戦闘数分布 (通常戦)", labels={"BATTLES_COUNT": "戦闘数", "_SHIP_TYPE": "艦種"})
-                f_typ_bar.update_traces(marker_color="#38bdf8", texttemplate='%{text:,} 戦', textposition='outside', marker_line=dict(width=1, color='#ffffff'))
-                f_typ_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", xaxis=dict(gridcolor="#1e293b", title="総戦闘数"), yaxis=dict(title=""))
+                typ_data = l_ships_latest.groupby("_SHIP_TYPE")["BATTLES_COUNT"].sum().reset_index()
+                f_typ_bar = px.bar(typ_data, x="_SHIP_TYPE", y="BATTLES_COUNT", text="BATTLES_COUNT",
+                                   title="艦種別戦闘数", labels={"BATTLES_COUNT": "戦闘数", "_SHIP_TYPE": "艦種"})
+                f_typ_bar.update_traces(marker_color="#38bdf8", texttemplate='%{text:,}', textposition='outside')
+                f_typ_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14")
                 st.plotly_chart(f_typ_bar, use_container_width=True)
+                
+            with sc3:
+                tier_data = l_ships_latest.groupby("_ESTIMATED_TIER")["BATTLES_COUNT"].sum().reset_index()
+                tier_data["_ESTIMATED_TIER"] = pd.Categorical(tier_data["_ESTIMATED_TIER"], categories=TIER_ORDER, ordered=True)
+                tier_data = tier_data.dropna(subset=["_ESTIMATED_TIER"]).sort_values(by="_ESTIMATED_TIER")
+                f_tier_bar = px.bar(tier_data, x="_ESTIMATED_TIER", y="BATTLES_COUNT", text="BATTLES_COUNT",
+                                   title="ティア別戦闘数", labels={"BATTLES_COUNT": "戦闘数", "_ESTIMATED_TIER": "ティア"})
+                f_tier_bar.update_traces(marker_color="#fbbf24", texttemplate='%{text:,}', textposition='outside')
+                f_tier_bar.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14")
+                st.plotly_chart(f_tier_bar, use_container_width=True)
 
     # ------------------------------------------
     # Tab 2: 国・艦種・ティア別分析
@@ -620,7 +619,6 @@ def main():
             headers = ["戦闘数", "勝率", "平均経験値", "平均ダメージ", "キルデス比(K/D)"]
             formats = ["{:,}", "{:.2f}%", "{:,.0f}", "{:,.0f}", "{:.2f}"]
             
-            # --- 1. 国家別分析 ---
             st.markdown('<div class="chart-section-title">🌍 構造分析：国家別マトリクス</div>', unsafe_allow_html=True)
             nation_rows = []
             for n in NATION_ORDER:
@@ -631,10 +629,7 @@ def main():
                         nation_rows.append((n, [kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
             if nation_rows:
                 st.markdown(generate_matrix_html(headers, nation_rows, formats), unsafe_allow_html=True)
-            else:
-                st.info("国家別集計に該当するデータがありません。")
                 
-            # --- 2. 艦種別分析 ---
             st.markdown('<div class="chart-section-title">🚢 構造分析：艦種別マトリクス</div>', unsafe_allow_html=True)
             type_rows = []
             for t in ["駆逐艦", "巡洋艦", "戦艦", "空母", "その他"]:
@@ -646,7 +641,6 @@ def main():
             if type_rows:
                 st.markdown(generate_matrix_html(headers, type_rows, formats), unsafe_allow_html=True)
                 
-            # --- 3. ティア別分析 ---
             st.markdown('<div class="chart-section-title">🎖️ 構造分析：ティア別マトリクス</div>', unsafe_allow_html=True)
             tier_rows = []
             for tier in TIER_ORDER:
@@ -654,48 +648,63 @@ def main():
                 if not sub_df.empty:
                     kpi = calc_metrics_from_row(sub_df)
                     if kpi["battles"] is not None:
-                        row_label = "Legendary" if "Legend" in tier else f"Tier {tier}"
-                        tier_rows.append((row_label, [kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
+                        tier_rows.append((f"Tier {tier}" if tier != "★" else "★", [kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
             if tier_rows:
                 st.markdown(generate_matrix_html(headers, tier_rows, formats), unsafe_allow_html=True)
-            else:
-                st.info("ティア別集計に該当するデータがありません。")
         else:
             st.info("選択されたモード・部隊形式の艦艇データがありません。")
 
     # ------------------------------------------
-    # Tab 3: 艦艇別詳細
+    # Tab 3: 艦艇別詳細 (st.dataframeでソート可能)
     # ------------------------------------------
     with t_ship:
         if not mode_filtered_ship_df.empty:
             l_ships = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == mode_filtered_ship_df['_SNAPSHOT_DATE'].max()].copy()
-            c_f1, c_f2 = st.columns(2)
             
-            available_nations = [n for n in NATION_ORDER if n in l_ships['_NATION'].unique()]
-            s_nat = c_f1.selectbox("国家で絞り込む", ["すべて"] + available_nations)
-            s_typ = c_f2.selectbox("艦種で絞り込む", ["すべて"] + list(l_ships['_SHIP_TYPE'].unique()))
+            # 絞り込みボタン群 (Radioをボタン代わりに活用)
+            c_f1, c_f2 = st.columns([3, 1])
+            with c_f1:
+                s_typ = st.radio("艦種フィルター", ["すべて", "駆逐艦", "巡洋艦", "戦艦", "空母"], horizontal=True, label_visibility="collapsed")
+            with c_f2:
+                s_tier = st.text_input("表示するティア（例: I, ★など。空欄ですべて）", value="")
             
+            s_nat = st.radio("国家フィルター", ["すべて"] + NATION_ORDER, horizontal=True, label_visibility="collapsed")
+            
+            # マスク処理
             mask = pd.Series(True, index=l_ships.index)
-            if s_nat != "すべて": mask = mask & (l_ships['_NATION'] == s_nat)
             if s_typ != "すべて": mask = mask & (l_ships['_SHIP_TYPE'] == s_typ)
+            if s_nat != "すべて": mask = mask & (l_ships['_NATION'] == s_nat)
+            if s_tier.strip():
+                mask = mask & (l_ships['_ESTIMATED_TIER'] == s_tier.strip())
+                
             query_df = l_ships[mask].sort_values(by="BATTLES_COUNT", ascending=False)
             
-            ship_headers = ["国家", "艦種", "ティア", "戦闘数", "勝率", "平均経験値", "平均ダメージ", "キルデス比"]
-            ship_formats = ["{}", "{}", "{}", "{:,}", "{:.2f}%", "{:,.0f}", "{:,.0f}", "{:.2f}"]
-            
-            ship_rows = []
-            for _, r in query_df.iterrows():
-                if r['BATTLES_COUNT'] > 0:
-                    kpi = calc_metrics_from_row(pd.DataFrame([r]))
-                    ship_html_name = f'<span class="game-ship-name">{r["_CLEAN_NAME"]}</span>'
-                    
-                    # 艦艇個別リストでもレジェンダリーを見やすく整形
-                    display_tier = "Legendary" if "Legend" in str(r['_ESTIMATED_TIER']) else r['_ESTIMATED_TIER']
-                    
-                    ship_rows.append((ship_html_name, [r['_NATION'], r['_SHIP_TYPE'], display_tier, kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
-            
-            if ship_rows:
-                st.markdown(generate_matrix_html(ship_headers, ship_rows, ship_formats), unsafe_allow_html=True)
+            if not query_df.empty:
+                # 画面表示用にDataFrameを整形
+                df_show = query_df[['_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME', 
+                                    'BATTLES_COUNT', 'WINS', 'SURVIVED', 'DAMAGE_DEALT', 'FRAGS', 'ORIGINAL_EXP']].copy()
+                
+                # 計算
+                df_show['勝率(%)'] = (df_show['WINS'] / df_show['BATTLES_COUNT'] * 100).round(2)
+                df_show['平均経験値'] = (df_show['ORIGINAL_EXP'] / df_show['BATTLES_COUNT']).round(0)
+                df_show['平均ダメージ'] = (df_show['DAMAGE_DEALT'] / df_show['BATTLES_COUNT']).round(0)
+                df_show['キルデス比'] = (df_show['FRAGS'] / (df_show['BATTLES_COUNT'] - df_show['SURVIVED']).replace(0, 1)).round(2)
+                
+                # 並び替えとカラム名変更
+                df_show = df_show[['_NATION', '_SHIP_TYPE', '_ESTIMATED_TIER', '_CLEAN_NAME', 'BATTLES_COUNT', '勝率(%)', '平均経験値', '平均ダメージ', 'キルデス比']]
+                df_show.columns = ['国家', '艦種', 'ティア', '艦艇名', '戦闘数', '勝率(%)', '平均経験値', '平均ダメージ', 'キルデス比']
+                
+                # st.dataframe を使用してソート可能な表を表示
+                st.dataframe(
+                    df_show.style.format({
+                        '勝率(%)': '{:.2f}%',
+                        '平均経験値': '{:,.0f}',
+                        '平均ダメージ': '{:,.0f}',
+                        'キルデス比': '{:.2f}'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
             else:
                 st.info("該当する艦艇データがありません。")
         else:
@@ -705,23 +714,31 @@ def main():
     # Tab 4: 自己ベスト
     # ------------------------------------------
     with t_best:
-        if not ship_df.empty:
-            st.markdown('<div class="chart-section-title">🏆 艦艇詳細ログからスキャンした最高記録</div>', unsafe_allow_html=True)
+        if not mode_filtered_ship_df.empty:
+            st.markdown(f'<div class="chart-section-title">🏆 選択モード({current_mode}/{st.session_state.sel_team})の最高記録</div>', unsafe_allow_html=True)
             
+            # 最高撃墜数カラム（MAX_PLANES_KILLED等が一般的）を探す
+            plane_col = None
+            for col in ['MAX_PLANES_KILLED', 'MAX_AIRCRAFTS_KILLED', 'MAX_PLANES_KILLED_BY_AA']:
+                if col in mode_filtered_ship_df.columns:
+                    plane_col = col
+                    break
+                    
             best_targets = [
                 ("最高与ダメージ", "MAX_DAMAGE_DEALT"),
                 ("最高取得経験値", "MAX_ORIGINAL_EXP"),
-                ("最高撃沈数", "MAX_FRAGS"),
-                ("主砲最大命中数", "MAX_MAIN_HIT")
+                ("最高撃沈数", "MAX_FRAGS")
             ]
+            if plane_col:
+                best_targets.append(("最高撃墜数", plane_col))
             
-            best_headers = ["記録数値", "達成艦艇", "戦闘モードコード"]
+            best_headers = ["記録数値", "達成艦艇", "分類（ティア・艦種）"]
             best_formats = ["{}", "{}", "{}"]
             best_rows = []
             
             for label, col_name in best_targets:
-                if col_name in ship_df.columns:
-                    valid_df = ship_df[pd.to_numeric(ship_df[col_name], errors='coerce').notna()]
+                if col_name in mode_filtered_ship_df.columns:
+                    valid_df = mode_filtered_ship_df[pd.to_numeric(mode_filtered_ship_df[col_name], errors='coerce').notna()]
                     if not valid_df.empty:
                         idx_max = valid_df[col_name].idxmax()
                         best_row = valid_df.loc[idx_max]
@@ -729,34 +746,79 @@ def main():
                         val_num = int(best_row[col_name])
                         val_str = f"{val_num:,}"
                         
-                        ship_name = best_row.get('_CLEAN_NAME', best_row['VEHICLE_NAME'])
-                        mode_code = best_row['TYPE']
+                        ship_name = best_row.get('_CLEAN_NAME', best_row.get('VEHICLE_NAME', '不明'))
+                        type_str = f"Tier {best_row.get('_ESTIMATED_TIER', '')} / {best_row.get('_SHIP_TYPE', '')}"
                         
-                        mode_meta = BATTLE_TYPE_MAP.get(int(mode_code), {"mode": f"コード:{mode_code}", "team": ""})
-                        mode_display = f"{mode_meta['mode']} ({mode_meta['team']})" if mode_meta['team'] else mode_meta['mode']
-                        
-                        best_rows.append((label, [val_str, f'<span class="game-ship-name">{ship_name}</span>', mode_display]))
+                        best_rows.append((label, [val_str, f'<span class="game-ship-name">{ship_name}</span>', type_str]))
                         
             if best_rows:
                 st.markdown(generate_matrix_html(best_headers, best_rows, best_formats), unsafe_allow_html=True)
             else:
-                st.warning("艦艇詳細データに必要な最高記録カラムが含まれていません。")
+                st.warning("選択したモードの記録が見つかりません。")
         else:
-            st.info("艦艇詳細データ（ship_stats）がありません。")
+            st.info("データがありません。")
 
     # ------------------------------------------
-    # Tab 5: クランデータ
+    # Tab 5: その他 (クラン履歴・プレイ時間)
     # ------------------------------------------
-    with t_clan:
-        clan_df = data["clans"]
-        if not clan_df.empty:
-            latest_clan = clan_df[clan_df['_SNAPSHOT_DATE'] == clan_df['_SNAPSHOT_DATE'].max()]
-            if not latest_clan.empty:
-                r_data = latest_clan.iloc[0]
-                clan_rows = [(str(col), [str(r_data[col])]) for col in latest_clan.columns if col != '_SNAPSHOT_DATE']
-                st.markdown(generate_matrix_html(["設定値"], clan_rows, ["{}"]), unsafe_allow_html=True)
-        else:
-            st.info("クランデータ（Clans.csv）がありません。")
+    with t_other:
+        c1, c2 = st.columns(2)
+        
+        # 🛡️ クラン履歴表示
+        with c1:
+            st.markdown('<div class="chart-section-title">🛡️ クラン入退隊 履歴</div>', unsafe_allow_html=True)
+            clan_df = data["clans"]
+            if not clan_df.empty:
+                clan_history = []
+                prev_clan = None
+                
+                clan_df_sorted = clan_df.sort_values(by="_SNAPSHOT_DATE")
+                for _, row in clan_df_sorted.iterrows():
+                    curr_clan = row.get("CLAN_NAME", None)
+                    curr_tag = row.get("CLAN_TAG", None)
+                    curr_date = row["_SNAPSHOT_DATE"]
+                    
+                    if pd.isna(curr_clan): curr_clan = None
+                    if pd.isna(curr_tag): curr_tag = None
+                    
+                    curr_full = f"[{curr_tag}] {curr_clan}" if curr_clan and curr_tag else None
+                    
+                    if curr_full != prev_clan:
+                        if prev_clan is not None:
+                            clan_history.append({"日付": curr_date.strftime("%Y/%m/%d"), "状態": "除隊", "クラン名": prev_clan})
+                        if curr_full is not None:
+                            clan_history.append({"日付": curr_date.strftime("%Y/%m/%d"), "状態": "入隊", "クラン名": curr_full})
+                        prev_clan = curr_full
+                        
+                if clan_history:
+                    st.dataframe(pd.DataFrame(clan_history), use_container_width=True, hide_index=True)
+                else:
+                    st.info("クランの変更履歴はありません。")
+            else:
+                st.info("クランデータ（Clans.csv）がありません。")
+
+        # ⏱️ プレイ時間の計算
+        with c2:
+            st.markdown('<div class="chart-section-title">⏱️ 累計プレイ時間</div>', unsafe_allow_html=True)
+            sess_df = data["game_sessions"]
+            if not sess_df.empty:
+                # プレイ時間が記録されている可能性のあるカラムを探す
+                play_time_sec = 0
+                found_col = None
+                for col in ["PLAY_TIME", "DURATION", "SESSION_TIME", "TIME_PLAYED"]:
+                    if col in sess_df.columns:
+                        play_time_sec = pd.to_numeric(sess_df[col], errors='coerce').sum()
+                        found_col = col
+                        break
+                
+                if found_col and play_time_sec > 0:
+                    hours = play_time_sec // 3600
+                    minutes = (play_time_sec % 3600) // 60
+                    st.metric("総プレイ時間", f"{int(hours):,} 時間 {int(minutes)} 分")
+                else:
+                    st.info("プレイ時間を算出できるカラムが見つかりませんでした。")
+            else:
+                st.info("セッションデータ（WOWSL_Game_Sessions.csv）がありません。")
 
 if __name__ == '__main__':
     main()
