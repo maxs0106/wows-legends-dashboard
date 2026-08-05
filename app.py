@@ -372,57 +372,6 @@ def generate_matrix_html(headers: List[str], rows_data: List[Tuple[str, List[Any
     html += '</tbody></table></div>'
     return html
 
-def get_clan_tag(clans_df: pd.DataFrame) -> str | None:
-    """
-    Clans.csv から最新クランタグを取得
-    """
-    if clans_df.empty:
-        return None
-
-    df = clans_df.copy()
-
-    # 最新データ優先
-    if "_SNAPSHOT_DATE" in df.columns:
-        df = df.sort_values("_SNAPSHOT_DATE")
-
-    latest = df.iloc[-1]
-
-    # 可能性のある列名
-    possible_cols = [
-        "CLAN_TAG",
-        "TAG",
-        "CLAN",
-        "ABBREVIATION",
-        "NAME",
-        "TITLE"
-    ]
-
-    for col in possible_cols:
-        if col in latest.index:
-            value = str(latest[col]).strip()
-
-            # WoWSのタグっぽいものだけ採用
-            if (
-                value
-                and value.lower() != "nan"
-                and 1 <= len(value) <= 6
-            ):
-                return value
-
-    # 列名不明の場合
-    for value in latest.values:
-        value = str(value).strip()
-
-        if (
-            value
-            and value.lower() != "nan"
-            and value.isalnum()
-            and 2 <= len(value) <= 5
-        ):
-            return value
-
-    return None
-
 # ==========================================
 # 4. メインアプリケーションルーチン
 # ==========================================
@@ -460,8 +409,7 @@ def main():
         data["ship_stats"] = ship_df
 
     # ⚓ クラン・プレイヤー情報抽出
-    clan_tag = get_clan_tag(data["clans"])
-    p_name = "プレイヤーデータ"
+    clan_tag, p_name = None, "プレイヤーデータ"
     if not data["account_info"].empty:
         l_info = data["account_info"].iloc[-1]
         for nick_col in ['NICKNAME', 0]:
