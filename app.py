@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 # 1. ページ初期設定 & カスタムゲームUI風CSS
 # ==========================================
 st.set_page_config(
-    page_title="WOWSL Legends Dashboard",
+    page_title="WOWS Legends Dashboard",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
