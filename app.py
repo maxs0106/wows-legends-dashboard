@@ -424,6 +424,22 @@ def main():
                 p_name = str(l_stats[name_col])
                 break
 
+    if not data["clans"].empty and 'CREATED_AT' in data["clans"].columns:
+        clan_df = data["clans"].copy()
+        clan_df['CREATED_AT'] = pd.to_datetime(clan_df['CREATED_AT'], errors='coerce')
+        latest_clan_df = clan_df.sort_values(by='CREATED_AT').dropna(subset=['CREATED_AT']).iloc[-1:]
+        if not latest_clan_df.empty:
+            l_clan = latest_clan_df.iloc[0]
+            for col in ['CLAN_NAME', 'CLAN_TAG', 'TAG']:
+                if col in l_clan.index and pd.notna(l_clan[col]):
+                    val_str = str(l_clan[col]).strip()
+                    if "[" in val_str and "]" in val_str:
+                        match = re.search(r'\[(.*?)\]', val_str)
+                        if match: val_str = match.group(1)
+                    if 2 <= len(val_str) <= 20 and val_str.isalnum():
+                        clan_tag = val_str
+                        break
+
     player_display_string = f"【{clan_tag}】{p_name}" if clan_tag else p_name
     st.markdown(f'<div class="game-header-container"><div class="game-title">Wows Legends Dashboard</div><div class="player-clan-info">{player_display_string}</div></div>', unsafe_allow_html=True)
 
