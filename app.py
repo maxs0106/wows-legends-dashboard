@@ -681,7 +681,7 @@ def main():
                 with ct1:
                     min_t = st.number_input("",min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
                 with ct2:
-                    st.markdown("<div style='text-align: center; padding-top: 30px; font-weight: bold;'>～</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; padding-top: 35px; font-weight: bold;'>～</div>", unsafe_allow_html=True)
                 with ct3:
                     max_t = st.number_input("",min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
             
@@ -818,7 +818,7 @@ def main():
                     result_df = result_df.sort_values(by='年月日', ascending=False)
                     
                     # 【変更】ヘッダー文字（区分、年月日、クラン名）を削除（空文字化）
-                    result_df.columns = ['', '', '']
+                    result_df.columns = [' ', '  ', '   ']
                     
                     if not result_df.empty:
                         st.dataframe(result_df, use_container_width=True, hide_index=True)
