@@ -673,16 +673,15 @@ def main():
             
             with c_f1:
                 sel_types = st.pills("艦種", ["すべて", "駆逐艦", "巡洋艦", "戦艦", "空母"], default=["すべて"], selection_mode="multi", key="pills_types", label_visibility="collapsed")
+                sel_nations = st.pills("国家", ["すべて"] + NATION_ORDER, default=["すべて"], selection_mode="multi", key="pills_nations", label_visibility="collapsed")
             
             with c_f2:
                 st.caption("表示Tier範囲 ")
                 ct1, ct2 = st.columns(2)
                 with ct1:
-                    min_t = st.number_input("下限", min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
+                    min_t = st.number_input(min_value=1, max_value=9, value=1, step=1, help="1: Tier I 〜 9: ★")
                 with ct2:
-                    max_t = st.number_input("上限", min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
-            
-            sel_nations = st.pills("国家", ["すべて"] + NATION_ORDER, default=["すべて"], selection_mode="multi", key="pills_nations", label_visibility="collapsed")
+                    max_t = st.number_input(min_value=1, max_value=9, value=9, step=1, help="1: Tier I 〜 9: ★")
             
             # マスク処理
             mask = pd.Series(True, index=l_ships.index)
