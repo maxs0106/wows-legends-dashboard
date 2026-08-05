@@ -674,6 +674,14 @@ def main():
             with c_f1:
                 st.caption("艦種フィルター (複数選択可能 / すべて選択で連動)")
                 sel_types = st.pills("艦種", ["すべて", "駆逐艦", "巡洋艦", "戦艦", "空母"], default=["すべて"], selection_mode="multi", key="pills_types", label_visibility="collapsed")
+                all_types = ["駆逐艦", "巡洋艦", "戦艦", "空母"]
+                # 全艦種が選ばれたら「すべて」を追加
+                if all(t in sel_types for t in all_types) and "すべて" not in sel_types:
+                    st.session_state.pills_types = ["すべて"] + all_types
+                    st.rerun()
+                # 「すべて」だけ外されたら全解除
+                elif "すべて" not in sel_types and set(all_types).issubset(sel_types):
+                    st.session_state.pills_types = all_types
             
             with c_f2:
                 st.caption("表示ティア範囲 (ボタンで操作)")
@@ -685,6 +693,14 @@ def main():
             
             st.caption("国家フィルター (複数選択可能 / すべて選択で連動)")
             sel_nations = st.pills("国家", ["すべて"] + NATION_ORDER, default=["すべて"], selection_mode="multi", key="pills_nations", label_visibility="collapsed")
+            # 全国家が選ばれたら「すべて」を追加
+            if all(n in sel_nations for n in NATION_ORDER) and "すべて" not in sel_nations:
+                st.session_state.pills_nations = ["すべて"] + NATION_ORDER
+                st.rerun()
+            
+            # 「すべて」だけ外されたら通常の全選択状態
+            elif "すべて" not in sel_nations and set(NATION_ORDER).issubset(sel_nations):
+                st.session_state.pills_nations = NATION_ORDER
             
             # マスク処理
             mask = pd.Series(True, index=l_ships.index)
