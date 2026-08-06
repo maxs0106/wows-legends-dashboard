@@ -44,14 +44,14 @@ CSS_STYLE = """
     .game-title {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #ECA134;
+        color: #FFFFFF;
         letter-spacing: 2px;
         margin: 0 0 10px 0;
         text-transform: uppercase;
     }
     .player-clan-info {
         font-size: 1.4rem;
-        color: ECA134;
+        color: #ECA134;
         font-weight: 700;
     }
 
