@@ -913,7 +913,7 @@ def main():
             st.markdown('<div class="chart-section-title">⚙️ 未登録艦艇IDの管理</div>', unsafe_allow_html=True)
             st.caption("戦績データに含まれているものの、艦艇マスターデータ (`WOWSL_Ships.csv`) に登録されていない `SHIP_ID` を一覧表示します。")
         
-            stats_df = data.get("user_ship_stats", pd.DataFrame())
+            stats_df = data.get("ship_stats", pd.DataFrame())
             ships_df = data.get("ships", pd.DataFrame())
         
             if stats_df.empty:
