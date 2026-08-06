@@ -47,7 +47,6 @@ CSS_STYLE = """
         color: #FFFFFF;
         letter-spacing: 2px;
         margin: 0 0 10px 0;
-        text-transform: uppercase;
     }
     .player-clan-info {
         font-size: 1.4rem;
