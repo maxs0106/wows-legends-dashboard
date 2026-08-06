@@ -911,26 +911,33 @@ def main():
    # ==========================================
         with t_admin:
             st.markdown('<div class="chart-section-title">⚙️ 未登録艦艇IDの管理</div>', unsafe_allow_html=True)
-            st.caption("戦績データに含まれているものの、艦艇マスターデータ (`WOWSL_Ships.csv`) に登録されていない `SHIP_ID` を一覧表示します。")
+            st.caption("戦績データに含まれているものの、`ship_id.csv` に登録されていない `SHIP_ID` を一覧表示します。")
         
-            stats_df = data.get("ship_stats", pd.DataFrame())
-            ships_df = data.get("ships", pd.DataFrame())
+            # ship_id.csv から参照辞書を取得
+            ship_ref = load_ship_reference()
+            
+            # 戦績データの取得
+            stats_df = data.get("user_ship_stats", pd.DataFrame())
         
             if stats_df.empty:
                 st.info("戦績データが読み込まれていません。")
-            elif ships_df.empty or "SHIP_ID" not in ships_df.columns:
-                st.error("艦艇マスターデータ (`data['ships']`) が正しく読み込まれていないか、'SHIP_ID' 列が存在しません。")
+            elif not os.path.exists("ship_id.csv"):
+                st.error("`ship_id.csv` ファイルが見つかりません。")
             else:
-                # マスターデータの SHIP_ID 一覧を取得
-                master_ids = set(ships_df["SHIP_ID"].dropna().unique())
+                # ship_id.csv に登録されている ID の集合（文字列に統一）
+                registered_ids = set(ship_ref.keys())
         
-                # 戦績データの中でマスターに存在しない行を抽出
-                unregistered_df = stats_df[~stats_df["SHIP_ID"].isin(master_ids)]
+                # 戦績データの SHIP_ID を一時的に文字列化して比較
+                stats_temp = stats_df.copy()
+                stats_temp["SHIP_ID_STR"] = stats_temp["SHIP_ID"].astype(str)
+        
+                # 未登録IDの行を抽出
+                unregistered_df = stats_temp[~stats_temp["SHIP_ID_STR"].isin(registered_ids)]
         
                 if unregistered_df.empty:
-                    st.success("✅ すべての艦艇IDがマスターデータ (`data['ships']`) に登録されています。")
+                    st.success("✅ すべての艦艇IDが `ship_id.csv` に登録されています。")
                 else:
-                    # 未登録IDごとに集計 (総戦闘数やレコード数など)
+                    # 未登録IDごとに集計（データ件数・総戦闘数）
                     agg_dict = {"SHIP_ID": "count"}
                     if "BATTLES_COUNT" in unregistered_df.columns:
                         agg_dict["BATTLES_COUNT"] = "sum"
@@ -941,13 +948,13 @@ def main():
                         .reset_index()
                     )
         
-                    # 列名の表示整形
+                    # 列名の表示用リネーム
                     rename_map = {"SHIP_ID": "未登録 SHIP_ID", "SHIP_ID_count": "データレコード数"}
                     if "BATTLES_COUNT" in unregistered_summary.columns:
                         rename_map["BATTLES_COUNT"] = "総戦闘数"
                     unregistered_summary = unregistered_summary.rename(columns=rename_map)
         
-                    st.warning(f"⚠️ マスター未登録の艦艇IDが **{len(unregistered_summary)} 件** 見つかりました。マスターデータの更新が必要です。")
+                    st.warning(f"⚠️ `ship_id.csv` 未登録の艦艇IDが **{len(unregistered_summary)} 件** 見つかりました。")
         
                     # テーブル表示
                     st.dataframe(
@@ -956,12 +963,18 @@ def main():
                         hide_index=True
                     )
         
-                    # CSVダウンロードボタン（マスタ追加作業用）
-                    csv_data = unregistered_summary.to_csv(index=False).encode("utf-8_sig")
+                    # ship_id.csv にそのまま追記できる形式（id, name, Tier）のテンプレート作成
+                    template_df = pd.DataFrame({
+                        "id": unregistered_summary["未登録 SHIP_ID"],
+                        "name": "",
+                        "Tier": ""
+                    })
+                    csv_data = template_df.to_csv(index=False).encode("utf-8_sig")
+                    
                     st.download_button(
-                        label="📥 未登録IDリストをCSVでダウンロード",
+                        label="📥 追記用テンプレートCSVをダウンロード (id, name, Tier)",
                         data=csv_data,
-                        file_name="unregistered_ship_ids.csv",
+                        file_name="unregistered_ships_template.csv",
                         mime="text/csv"
                     )
 
