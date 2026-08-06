@@ -917,7 +917,7 @@ def main():
             ship_ref = load_ship_reference()
             
             # 戦績データの取得
-            stats_df = data.get("user_ship_stats", pd.DataFrame())
+            stats_df = data.get("ship_stats", pd.DataFrame())
         
             if stats_df.empty:
                 st.info("戦績データが読み込まれていません。")
