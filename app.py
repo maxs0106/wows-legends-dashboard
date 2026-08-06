@@ -785,67 +785,64 @@ def main():
     # 🏆 TAB 4: 自己ベスト
     # ==========================================
     with t_best:
-        st.markdown('<div class="chart-section-title">🏆 自己ベスト記録</div>', unsafe_allow_html=True)
-        st.caption("現在選択されているモード・部隊形式における個人の最高記録です。")
-    
-        # ship_id.csv から艦艇情報を読み込み
-        ship_ref = load_ship_reference()
-    
-        def get_ship_display_name(veh_id) -> str:
-            """VEHICLE_NAME (id) から表示用の艦艇名 (Tier) を取得"""
-            veh_str = str(veh_id)
-            if veh_str in ship_ref:
-                name, tier = ship_ref[veh_str]
-                return f"{name} ({tier})" if pd.notna(tier) and str(tier).strip() != "" else name
-            return veh_str
-    
-        # サイドバー等で選択中のモードでフィルタリングされた戦績データ (df) を使用
-        if df.empty:
-            st.info("選択されたモードの戦績データがありません。")
-        else:
-            # 指標の設定: (表示名, カラム名の候補リスト, 数値のフォーマット関数)
-            metric_configs = [
-                ("💥 最高与ダメージ", ["MAX_DAMAGE", "MAX_DAMAGE_DEALT"], lambda v: f"{int(v):,}"),
-                ("⭐ 最高取得経験値", ["MAX_XP", "MAX_EXPERIENCE"], lambda v: f"{int(v):,} EXP"),
-                ("🎯 最高撃沈数", ["MAX_FRAGS", "MAX_KILLS"], lambda v: f"{int(v)} 隻"),
-                ("✈️ 最高撃墜数", ["MAX_PLANES_DENIED", "MAX_PLANES_SHOT_DOWN", "MAX_PLANES_DESTROYED"], lambda v: f"{int(v)} 機"),
-            ]
-    
-            # 4つのコンテナを横並びに配置
-            cols = st.columns(len(metric_configs))
-    
-            for col, (title, col_candidates, fmt_func) in zip(cols, metric_configs):
-                # データフレーム内に存在するカラム名を特定
-                target_col = next((c for c in col_candidates if c in df.columns), None)
-    
-                with col:
-                    with st.container(border=True):
-                        # 1. 項目名（最上段）
-                        st.caption(title)
-    
-                        if target_col and not df[target_col].dropna().empty:
-                            # 該当指標の最大値を持つ行を取得
-                            valid_df = df[df[target_col] > 0]
-                            if not valid_df.empty:
-                                max_row = valid_df.loc[valid_df[target_col].idxmax()]
-                                val = max_row[target_col]
-                                
-                                # VEHICLE_NAME（または SHIP_ID）を取得
-                                veh_id = max_row.get("VEHICLE_NAME", max_row.get("SHIP_ID", "不明"))
-                                ship_name = get_ship_display_name(veh_id)
-    
-                                # 2. 記録（中段）
-                                st.markdown(f"### {fmt_func(val)}")
-                                
-                                # 3. 艦艇名（下段）
-                                st.markdown(f"**{ship_name}**")
-                            else:
-                                st.markdown("### -")
-                                st.caption("記録なし")
-                        else:
-                            st.markdown("### -")
-                            st.caption("データなし")
+        if not mode_filtered_ship_df.empty:
+            st.markdown(f'<div class="chart-section-title">🏆 選択モード({current_mode}/{st.session_state.sel_team})の最高記録</div>', unsafe_allow_html=True)
+            
+            # 各記録に対応する列名の自動判定
+            plane_col = None
+            for col in ['MAX_PLANES_KILLED', 'MAX_AIRCRAFTS_KILLED', 'MAX_PLANES_KILLED_BY_AA']:
+                if col in mode_filtered_ship_df.columns:
+                    plane_col = col
+                    break
 
+            exp_col = None
+            for col in ['MAX_ORIGINAL_EXP', 'MAX_XP', 'MAX_EXP', 'MAX_EXP_DEALT']:
+                if col in mode_filtered_ship_df.columns:
+                    exp_col = col
+                    break
+                    
+            best_targets = [
+                ("最高与ダメージ", "MAX_DAMAGE_DEALT"),
+                ("最高取得経験値", exp_col or "MAX_ORIGINAL_EXP"),
+                ("最高撃沈数", "MAX_FRAGS")
+            ]
+            if plane_col:
+                best_targets.append(("最高撃墜数", plane_col))
+            
+            best_records = []
+            
+            for label, col_name in best_targets:
+                if col_name and col_name in mode_filtered_ship_df.columns:
+                    valid_df = mode_filtered_ship_df[pd.to_numeric(mode_filtered_ship_df[col_name], errors='coerce').notna()]
+                    if not valid_df.empty:
+                        idx_max = valid_df[col_name].idxmax()
+                        best_row = valid_df.loc[idx_max]
+                        
+                        val_num = int(best_row[col_name])
+                        val_str = f"{val_num:,}"
+                        ship_name = str(best_row.get('_CLEAN_NAME', best_row.get('VEHICLE_NAME', '不明')))
+                        
+                        best_records.append({
+                            "label": label,
+                            "value": val_str,
+                            "ship": ship_name
+                        })
+                        
+            if best_records:
+                # 記録数分のカラムを作成して横に並べる
+                cols = st.columns(len(best_records))
+                for i, rec in enumerate(best_records):
+                    with cols[i]:
+                        # with を使ったカード風コンテナ
+                        with st.container(border=True):
+                            # 上から順に: 項目名 -> 記録数値 -> 艦艇名
+                            st.caption(rec["label"])
+                            st.markdown(f"### {rec['value']}")
+                            st.caption(f"🚢 {rec['ship']}")
+            else:
+                st.warning("選択したモードの記録が見つかりません。")
+        else:
+            st.info("データがありません。")
     # ------------------------------------------
     # Tab 5: その他 (クラン履歴・累計プレイ時間)
     # ------------------------------------------
