@@ -36,25 +36,22 @@ CSS_STYLE = """
     
     /* ⚓ タイトル & クラン情報 UI */
     .game-header-container {
-        background: linear-gradient(90deg, #111c2e 0%, #070d14 100%);
-        border-left: 5px solid #00f2fe;
         padding: 20px 24px;
         border-radius: 4px;
         margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        background-color: #0D2B36;
     }
     .game-title {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #ffffff;
+        color: #ECA134;
         letter-spacing: 2px;
         margin: 0 0 10px 0;
         text-transform: uppercase;
-        text-shadow: 0 0 15px rgba(0, 242, 254, 0.5);
     }
     .player-clan-info {
         font-size: 1.4rem;
-        color: #ffffff;
+        color: ECA134;
         font-weight: 700;
     }
 
