@@ -536,7 +536,7 @@ def main():
     # ==========================================
     # タブ生成
     # ==========================================
-    t_summary, t_structural, t_ship, t_best, t_other = st.tabs([
+    t_summary, t_structural, t_ship, t_best, t_other, t_admin = st.tabs([
         "総合戦績", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "その他", "管理者用",
     ])
 
@@ -909,7 +909,7 @@ def main():
    # ==========================================
    # ⚙️ TAB 6: 管理 (未登録SHIP_IDの検出)
    # ==========================================
-        with tab6:
+        with t_admin:
             st.markdown('<div class="chart-section-title">⚙️ 未登録艦艇IDの管理</div>', unsafe_allow_html=True)
             st.caption("戦績データに含まれているものの、艦艇マスターデータ (`WOWSL_Ships.csv`) に登録されていない `SHIP_ID` を一覧表示します。")
         
