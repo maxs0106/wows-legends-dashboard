@@ -784,7 +784,7 @@ def main():
     # ==========================================
 　　# 🏆 TAB 4: 自己ベスト
 　　# ==========================================
-    with tab4:
+    with t_best:
         st.markdown('<div class="chart-section-title">🏆 自己ベスト記録</div>', unsafe_allow_html=True)
         st.caption("現在選択されているモード・部隊形式における個人の最高記録です。")
     
@@ -838,7 +838,7 @@ def main():
                                 st.markdown(f"### {fmt_func(val)}")
                                 
                                 # 3. 艦艇名（下段）
-                                st.markdown(f"🚢 **{ship_name}**")
+                                st.markdown(f"**{ship_name}**")
                             else:
                                 st.markdown("### -")
                                 st.caption("記録なし")
