@@ -911,7 +911,7 @@ def main():
    # ==========================================
         with t_admin:
             st.markdown('<div class="chart-section-title">⚙️ 未登録艦艇IDの管理</div>', unsafe_allow_html=True)
-            st.caption("戦績データに含まれているものの、`ship_id.csv` に登録されていない `SHIP_ID` を一覧表示します。")
+            st.caption("戦績データに含まれているものの、`ship_id.csv` の `id` 列に登録されていない艦艇（`VEHICLE_NAME`）を一覧表示します。")
         
             # ship_id.csv から参照辞書を取得
             ship_ref = load_ship_reference()
@@ -926,37 +926,44 @@ def main():
             elif not os.path.exists("ship_id.csv"):
                 st.error("`ship_id.csv` ファイルが見つかりません。")
             else:
-                # ship_id.csv に登録されている ID の集合（文字列に統一）
+                # ship_id.csv の id 一覧（文字列型に統一）
                 registered_ids = set(ship_ref.keys())
         
-                # 戦績データの SHIP_ID を一時的に文字列化して比較
+                # 戦績データの VEHICLE_NAME を文字列化して比較
                 stats_temp = stats_df.copy()
                 stats_temp["VEHICLE_NAME_STR"] = stats_temp["VEHICLE_NAME"].astype(str)
         
-                # 未登録IDの行を抽出
+                # 未登録データの抽出
                 unregistered_df = stats_temp[~stats_temp["VEHICLE_NAME_STR"].isin(registered_ids)]
         
                 if unregistered_df.empty:
-                    st.success("✅ すべての艦艇IDが `ship_id.csv` に登録されています。")
+                    st.success("✅ すべての艦艇が `ship_id.csv` に登録されています。")
                 else:
-                    # 未登録IDごとに集計（データ件数・総戦闘数）
-                    agg_dict = {"VEHICLE_NAME": "count"}
+                    # 未登録の VEHICLE_NAME ごとに集計（列名の重複を防ぐ書き方）
                     if "BATTLES_COUNT" in unregistered_df.columns:
-                        agg_dict["BATTLES_COUNT"] = "sum"
+                        unregistered_summary = (
+                            unregistered_df.groupby("VEHICLE_NAME")
+                            .agg(
+                                データレコード数=("VEHICLE_NAME", "count"),
+                                総戦闘数=("BATTLES_COUNT", "sum")
+                            )
+                            .reset_index()
+                        )
+                    else:
+                        unregistered_summary = (
+                            unregistered_df.groupby("VEHICLE_NAME")
+                            .agg(
+                                データレコード数=("VEHICLE_NAME", "count")
+                            )
+                            .reset_index()
+                        )
         
-                    unregistered_summary = (
-                        unregistered_df.groupby("VEHICLE_NAME")
-                        .agg(agg_dict)
-                        .reset_index()
+                    # 表示用に列名をリネーム
+                    unregistered_summary = unregistered_summary.rename(
+                        columns={"VEHICLE_NAME": "未登録 VEHICLE_NAME (id)"}
                     )
         
-                    # 列名の表示用リネーム
-                    rename_map = {"VEHICLE_NAME": "未登録 VEHICLE_NAME (id)", "VEHICLE_NAME_count": "データレコード数"}
-                    if "BATTLES_COUNT" in unregistered_summary.columns:
-                        rename_map["BATTLES_COUNT"] = "総戦闘数"
-                    unregistered_summary = unregistered_summary.rename(columns=rename_map)
-        
-                    st.warning(f"⚠️ `ship_id.csv` 未登録の艦艇IDが **{len(unregistered_summary)} 件** 見つかりました。")
+                    st.warning(f"⚠️ `ship_id.csv` 未登録の艦艇が **{len(unregistered_summary)} 件** 見つかりました。")
         
                     # テーブル表示
                     st.dataframe(
@@ -965,7 +972,7 @@ def main():
                         hide_index=True
                     )
         
-                    # ship_id.csv にそのまま追記できる形式（id, name, Tier）のテンプレート作成
+                    # ship_id.csv 形式 (id, name, Tier) の追記テンプレート作成
                     template_df = pd.DataFrame({
                         "id": unregistered_summary["未登録 VEHICLE_NAME (id)"],
                         "name": "",
