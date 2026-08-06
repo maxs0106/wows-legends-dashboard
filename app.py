@@ -25,7 +25,7 @@ st.set_page_config(
 CSS_STYLE = """
 <style>
     .stApp {
-        background-color: #0b131e;
+        background-color: #0D2B36e;
         color: #d1d5db;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
