@@ -921,6 +921,8 @@ def main():
         
             if stats_df.empty:
                 st.info("戦績データが読み込まれていません。")
+            elif "VEHICLE_NAME" not in stats_df.columns:
+                st.error("戦績データに `VEHICLE_NAME` 列が存在しません。")
             elif not os.path.exists("ship_id.csv"):
                 st.error("`ship_id.csv` ファイルが見つかりません。")
             else:
@@ -929,27 +931,27 @@ def main():
         
                 # 戦績データの SHIP_ID を一時的に文字列化して比較
                 stats_temp = stats_df.copy()
-                stats_temp["SHIP_ID_STR"] = stats_temp["SHIP_ID"].astype(str)
+                stats_temp["VEHICLE_NAME_STR"] = stats_temp["VEHICLE_NAME"].astype(str)
         
                 # 未登録IDの行を抽出
-                unregistered_df = stats_temp[~stats_temp["SHIP_ID_STR"].isin(registered_ids)]
+                unregistered_df = stats_temp[~stats_temp["VEHICLE_NAME_STR"].isin(registered_ids)]
         
                 if unregistered_df.empty:
                     st.success("✅ すべての艦艇IDが `ship_id.csv` に登録されています。")
                 else:
                     # 未登録IDごとに集計（データ件数・総戦闘数）
-                    agg_dict = {"SHIP_ID": "count"}
+                    agg_dict = {"VEHICLE_NAME": "count"}
                     if "BATTLES_COUNT" in unregistered_df.columns:
                         agg_dict["BATTLES_COUNT"] = "sum"
         
                     unregistered_summary = (
-                        unregistered_df.groupby("SHIP_ID")
+                        unregistered_df.groupby("VEHICLE_NAME")
                         .agg(agg_dict)
                         .reset_index()
                     )
         
                     # 列名の表示用リネーム
-                    rename_map = {"SHIP_ID": "未登録 SHIP_ID", "SHIP_ID_count": "データレコード数"}
+                    rename_map = {"VEHICLE_NAME": "未登録 VEHICLE_NAME (id)", "VEHICLE_NAME_count": "データレコード数"}
                     if "BATTLES_COUNT" in unregistered_summary.columns:
                         rename_map["BATTLES_COUNT"] = "総戦闘数"
                     unregistered_summary = unregistered_summary.rename(columns=rename_map)
@@ -965,7 +967,7 @@ def main():
         
                     # ship_id.csv にそのまま追記できる形式（id, name, Tier）のテンプレート作成
                     template_df = pd.DataFrame({
-                        "id": unregistered_summary["未登録 SHIP_ID"],
+                        "id": unregistered_summary["未登録 VEHICLE_NAME (id)"],
                         "name": "",
                         "Tier": ""
                     })
