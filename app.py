@@ -142,6 +142,12 @@ CSV_MAPPING = {
     "Account_Info.csv": "account_info"    
 }
 
+MERGE_TARGETS = {
+    "account_stats",
+    "ship_stats",
+    "battle_types"
+}
+
 IMAGE_NATION_MAP = {
     "a": "アメリカ", "j": "日本", "b": "イギリス", "g": "ドイツ",
     "f": "フランス", "r": "ソ連", "i": "イタリア", "w": "ヨーロッパ",
@@ -306,24 +312,45 @@ def merge_and_optimize(raw_data: Dict[str, List[pd.DataFrame]]) -> Dict[str, pd.
         if not dfs:
             merged[key] = pd.DataFrame()
             continue
-        
+
+        # -----------------------------
+        # 結合しないCSV
+        # -----------------------------
+        if key not in MERGE_TARGETS:
+            df = dfs[-1].copy()
+
+            if "_SNAPSHOT_DATE" in df.columns:
+                df["_SNAPSHOT_DATE"] = pd.to_datetime(df["_SNAPSHOT_DATE"])
+
+            merged[key] = df.reset_index(drop=True)
+            continue
+
+        # -----------------------------
+        # 結合するCSV
+        # -----------------------------
         df_concat = pd.concat(dfs, ignore_index=True)
-        if '_SNAPSHOT_DATE' in df_concat.columns:
-            df_concat['_SNAPSHOT_DATE'] = pd.to_datetime(df_concat['_SNAPSHOT_DATE'])
-        
-        if key == 'clans':
+
+        if "_SNAPSHOT_DATE" in df_concat.columns:
+            df_concat["_SNAPSHOT_DATE"] = pd.to_datetime(df_concat["_SNAPSHOT_DATE"])
+
+        if key == "clans":
             merged[key] = df_concat.drop_duplicates().reset_index(drop=True)
+
         else:
-            id_cols = ['_SNAPSHOT_DATE'] if '_SNAPSHOT_DATE' in df_concat.columns else []
-            if key == 'battle_types' and 'TYPE' in df_concat.columns: 
-                id_cols.append('TYPE')
-            elif key == 'ship_stats' and 'VEHICLE_NAME' in df_concat.columns and 'TYPE' in df_concat.columns: 
-                id_cols.extend(['VEHICLE_NAME', 'TYPE'])
-            
-            if id_cols:
-                merged[key] = df_concat.drop_duplicates(subset=id_cols, keep='last').reset_index(drop=True)
-            else:
-                merged[key] = df_concat.reset_index(drop=True)
+            id_cols = ["_SNAPSHOT_DATE"]
+
+            if key == "battle_types" and "TYPE" in df_concat.columns:
+                id_cols.append("TYPE")
+
+            elif key == "ship_stats":
+                id_cols.extend(["VEHICLE_NAME", "TYPE"])
+
+            merged[key] = (
+                df_concat
+                .drop_duplicates(subset=id_cols, keep="last")
+                .reset_index(drop=True)
+            )
+
             
     return merged
 
