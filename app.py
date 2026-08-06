@@ -537,7 +537,7 @@ def main():
     # タブ生成
     # ==========================================
     t_summary, t_structural, t_ship, t_best, t_other = st.tabs([
-        "総合戦績", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "その他"
+        "総合戦績", "国・艦種・ティア別分析", "艦艇別詳細", "自己ベスト", "その他", "管理者用",
     ])
 
     # ------------------------------------------
@@ -691,7 +691,7 @@ def main():
         # 艦種別マトリクス
         st.markdown('<div class="chart-section-title">🚢 構造分析：艦種別マトリクス</div>', unsafe_allow_html=True)
         type_rows = []
-        for t in ["駆逐艦", "巡洋艦", "戦艦", "空母", "その他"]:
+        for t in ["駆逐艦", "巡洋艦", "戦艦", "空母"]:
             sub_df = l_ships[l_ships['_SHIP_TYPE'] == t] if not l_ships.empty else pd.DataFrame()
             kpi = calc_metrics_from_row(sub_df)
             type_rows.append((t, [kpi["battles"], kpi["win_rate"], kpi["avg_xp"], kpi["avg_damage"], kpi["kd"]]))
@@ -905,6 +905,65 @@ def main():
                     st.error(f"プレイ時間の計算中にエラーが発生しました: {e}")
             else:
                 st.info("セッションデータ（WOWSL_Game_Sessions.csv）がありません。")
+
+   # ==========================================
+   # ⚙️ TAB 6: 管理 (未登録SHIP_IDの検出)
+   # ==========================================
+        with tab6:
+            st.markdown('<div class="chart-section-title">⚙️ 未登録艦艇IDの管理</div>', unsafe_allow_html=True)
+            st.caption("戦績データに含まれているものの、艦艇マスターデータ (`WOWSL_Ships.csv`) に登録されていない `SHIP_ID` を一覧表示します。")
+        
+            stats_df = data.get("user_ship_stats", pd.DataFrame())
+            ships_df = data.get("ships", pd.DataFrame())
+        
+            if stats_df.empty:
+                st.info("戦績データが読み込まれていません。")
+            elif ships_df.empty or "SHIP_ID" not in ships_df.columns:
+                st.error("艦艇マスターデータ (`data['ships']`) が正しく読み込まれていないか、'SHIP_ID' 列が存在しません。")
+            else:
+                # マスターデータの SHIP_ID 一覧を取得
+                master_ids = set(ships_df["SHIP_ID"].dropna().unique())
+        
+                # 戦績データの中でマスターに存在しない行を抽出
+                unregistered_df = stats_df[~stats_df["SHIP_ID"].isin(master_ids)]
+        
+                if unregistered_df.empty:
+                    st.success("✅ すべての艦艇IDがマスターデータ (`data['ships']`) に登録されています。")
+                else:
+                    # 未登録IDごとに集計 (総戦闘数やレコード数など)
+                    agg_dict = {"SHIP_ID": "count"}
+                    if "BATTLES_COUNT" in unregistered_df.columns:
+                        agg_dict["BATTLES_COUNT"] = "sum"
+        
+                    unregistered_summary = (
+                        unregistered_df.groupby("SHIP_ID")
+                        .agg(agg_dict)
+                        .reset_index()
+                    )
+        
+                    # 列名の表示整形
+                    rename_map = {"SHIP_ID": "未登録 SHIP_ID", "SHIP_ID_count": "データレコード数"}
+                    if "BATTLES_COUNT" in unregistered_summary.columns:
+                        rename_map["BATTLES_COUNT"] = "総戦闘数"
+                    unregistered_summary = unregistered_summary.rename(columns=rename_map)
+        
+                    st.warning(f"⚠️ マスター未登録の艦艇IDが **{len(unregistered_summary)} 件** 見つかりました。マスターデータの更新が必要です。")
+        
+                    # テーブル表示
+                    st.dataframe(
+                        unregistered_summary,
+                        use_container_width=True,
+                        hide_index=True
+                    )
+        
+                    # CSVダウンロードボタン（マスタ追加作業用）
+                    csv_data = unregistered_summary.to_csv(index=False).encode("utf-8_sig")
+                    st.download_button(
+                        label="📥 未登録IDリストをCSVでダウンロード",
+                        data=csv_data,
+                        file_name="unregistered_ship_ids.csv",
+                        mime="text/csv"
+                    )
 
 if __name__ == '__main__':
     main()
