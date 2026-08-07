@@ -40,6 +40,7 @@ CSS_STYLE = """
         border-radius: 4px;
         margin-bottom: 25px;
         background-color: #0D2B36;
+        border-bottom: 1px solid #ECA134;
     }
     .game-title {
         font-size: 2.2rem;
