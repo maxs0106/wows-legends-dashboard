@@ -59,7 +59,7 @@ CSS_STYLE = """
     .mode-selection-header {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #ECA134;
+        color: #FFFFFF;
         margin: 15px 0 10px 0;
         text-transform: uppercase;
     }
