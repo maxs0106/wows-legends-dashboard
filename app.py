@@ -63,6 +63,67 @@ CSS_STYLE = """
         margin: 15px 0 10px 0;
         text-transform: uppercase;
     }
+    
+    /* ボタン全体の指定 (通常背景: #5E6467)*/
+    /* 通常のボタン */
+    div.stButton > button,
+    button[data-testid="baseButton-secondary"],
+    button[data-testid="baseButton-primary"] {
+        background-color: #5E6467 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #5E6467 !important;
+    }
+    
+    /* st.pills / st.segmented_control などの選択系ボタン (非選択時) */
+    [data-testid="stPills"] button,
+    [data-testid="stSegmentedControl"] button {
+        background-color: #5E6467 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #5E6467 !important;
+    }
+    
+    /*　. ボタンの選択・ホバー・アクティブ状態 (#F85900)　*/
+    /* ホバー時・フォーカス時 */
+    div.stButton > button:hover,
+    div.stButton > button:active,
+    div.stButton > button:focus {
+        background-color: #F85900 !important;
+        color: #FFFFFF !important;
+        border-color: #F85900 !important;
+    }
+    
+    /* st.pills や st.segmented_control 等の選択状態 (aria-selected="true") */
+    [data-testid="stPills"] button[aria-selected="true"],
+    [data-testid="stSegmentedControl"] button[aria-selected="true"],
+    button[aria-selected="true"] {
+        background-color: #F85900 !important;
+        color: #FFFFFF !important;
+        border-color: #F85900 !important;
+    }
+    
+    /*  タブ (st.tabs) の指定*/
+    /* 非選択タブの背景 */
+    button[data-baseweb="tab"] {
+        background-color: #5E6467 !important;
+        color: #FFFFFF !important;
+        border-radius: 4px 4px 0 0 !important;
+        margin-right: 4px !important;
+    }
+    
+    /* 選択中のタブ (背景および文字色) */
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #F85900 !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* 選択中タブの下部インジケーター線 */
+    div[data-baseweb="tab-highlight"] {
+        background-color: #F85900 !important;
+    }
+    /* タブのボーダー線 */
+    div[data-baseweb="tab-border"] {
+        background-color: transparent !important;
+    }
 
     /* 📊 マトリクス共通デザイン */
     .matrix-scroll-wrapper {
