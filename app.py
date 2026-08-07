@@ -59,7 +59,7 @@ CSS_STYLE = """
     .mode-selection-header {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #00f2fe;
+        color: #ECA134;
         margin: 15px 0 10px 0;
         text-transform: uppercase;
     }
@@ -476,7 +476,7 @@ def main():
     if 'sel_mode' not in st.session_state: st.session_state.sel_mode = "通常"
     current_mode = st.session_state.sel_mode
 
-    st.markdown('<div class="mode-selection-header">■ STEP1: モード選択</div>', unsafe_allow_html=True)
+    st.markdown('<div class="mode-selection-header">戦闘タイプ選択</div>', unsafe_allow_html=True)
     mode_order = ["通常", "AI", "ランク", "アリーナ", "闘争", "アーケード", "クラン戦", "軍記"]
     m_cols = st.columns(len(mode_order))
     for idx, m_name in enumerate(mode_order):
@@ -486,7 +486,7 @@ def main():
                 st.session_state.sel_team = "総合"
                 st.rerun()
 
-    st.markdown('<div class="mode-selection-header">■ STEP2: 部隊形式選択</div>', unsafe_allow_html=True)
+    st.markdown('<div class="mode-selection-header">部隊形式選択</div>', unsafe_allow_html=True)
     team_options = ["総合"] if current_mode in ["クラン戦", "軍記"] else ["総合", "ソロ", "2人分隊", "3人分隊"]
     if 'sel_team' not in st.session_state or st.session_state.sel_team not in team_options:
         st.session_state.sel_team = "総合"
