@@ -631,7 +631,7 @@ def main():
             fig.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", showlegend=False, height=400, margin=dict(l=20, r=20, t=50, b=20))
             st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown('<div class="chart-section-title">戦闘数分布</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-section-title">戦闘数分布チャート</div>', unsafe_allow_html=True)
         if not mode_filtered_ship_df.empty:
             l_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
             l_ships_latest = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == l_date]
@@ -679,7 +679,7 @@ def main():
         formats = ["{:,}", "{:.2f}%", "{:,.0f}", "{:,.0f}", "{:.2f}"]
         
         # 国家別マトリクス
-        st.markdown('<div class="chart-section-title">🌍 構造分析：国家別マトリクス</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-section-title">国家別統計</div>', unsafe_allow_html=True)
         nation_rows = []
         for n in NATION_ORDER:
             sub_df = l_ships[l_ships['_NATION'] == n] if not l_ships.empty else pd.DataFrame()
@@ -688,7 +688,7 @@ def main():
         st.markdown(generate_matrix_html(headers, nation_rows, formats), unsafe_allow_html=True)
             
         # 艦種別マトリクス
-        st.markdown('<div class="chart-section-title">🚢 構造分析：艦種別マトリクス</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-section-title">艦種別統計</div>', unsafe_allow_html=True)
         type_rows = []
         for t in ["駆逐艦", "巡洋艦", "戦艦", "空母"]:
             sub_df = l_ships[l_ships['_SHIP_TYPE'] == t] if not l_ships.empty else pd.DataFrame()
@@ -697,7 +697,7 @@ def main():
         st.markdown(generate_matrix_html(headers, type_rows, formats), unsafe_allow_html=True)
             
         # ティア別マトリクス
-        st.markdown('<div class="chart-section-title">🎖️ 構造分析：ティア別マトリクス</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-section-title">ティア別統計</div>', unsafe_allow_html=True)
         tier_rows = []
         for tier in TIER_ORDER:
             sub_df = l_ships[l_ships['_ESTIMATED_TIER'] == tier] if not l_ships.empty else pd.DataFrame()
@@ -785,7 +785,7 @@ def main():
     # ==========================================
     with t_best:
         if not mode_filtered_ship_df.empty:
-            st.markdown(f'<div class="chart-section-title">🏆 選択モード({current_mode}/{st.session_state.sel_team})の最高記録</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="chart-section-title">選択モード({current_mode}/{st.session_state.sel_team})の最高記録</div>', unsafe_allow_html=True)
             
             # 各記録に対応する列名の自動判定
             plane_col = None
@@ -850,7 +850,7 @@ def main():
         
         # 🛡️ クラン履歴表示
         with c1:
-            st.markdown('<div class="chart-section-title">🛡️ クラン入退隊履歴</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-section-title">クラン移動</div>', unsafe_allow_html=True)
             clan_df = data["clans"]
             if not clan_df.empty:
                 try:
@@ -897,7 +897,7 @@ def main():
 
         # ⏱️ 累計プレイ時間の計算
         with c2:
-            st.markdown('<div class="chart-section-title">⏱️ 累計プレイ時間</div>', unsafe_allow_html=True)
+            st.markdown('<div class="chart-section-title">累計プレイ時間</div>', unsafe_allow_html=True)
             sess_df = data["game_sessions"]
             if not sess_df.empty:
                 try:
