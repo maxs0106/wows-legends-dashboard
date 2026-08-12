@@ -116,7 +116,7 @@ CSS_STYLE = """
     .chart-section-title {
         font-size: 1.3rem;
         font-weight: 700;
-        color: #ffffff;
+        color: #ECA134;
         margin: 40px 0 20px 0;
         text-align: center;
         border-bottom: 1px solid #ECA134;
