@@ -118,8 +118,8 @@ CSS_STYLE = """
         font-weight: 700;
         color: #ffffff;
         margin: 40px 0 20px 0;
-        padding-left: 10px;
-        border-left: 5px solid #00f2fe;
+        text-align: center
+        border-bottom: 1px solid #ECA134;
     }
     .empty-cell {
         color: #4b5563 !important;
@@ -529,7 +529,7 @@ def main():
         mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
 
-    st.markdown("<hr style='border:1px solid #ECA134; margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:1px solid #1e293b; margin: 25px 0;'>", unsafe_allow_html=True)
 
     # ==========================================
     # タブ生成
@@ -586,7 +586,7 @@ def main():
         html_table += '</tbody></table></div>'
         st.markdown(html_table, unsafe_allow_html=True)
 
-        st.markdown('<div class="chart-section-title">📈 選択モード 日程別推移トレンド</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-section-title">日程別推移チャート</div>', unsafe_allow_html=True)
         trend_records = []
         if not mode_bt_df.empty:
             for d in unique_dates:
@@ -630,7 +630,7 @@ def main():
             fig.update_layout(template="plotly_dark", paper_bgcolor="#070d14", plot_bgcolor="#070d14", showlegend=False, height=400, margin=dict(l=20, r=20, t=50, b=20))
             st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown('<div class="chart-section-title">📊 選択モード 戦闘数分布</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-section-title">戦闘数分布</div>', unsafe_allow_html=True)
         if not mode_filtered_ship_df.empty:
             l_date = mode_filtered_ship_df['_SNAPSHOT_DATE'].max()
             l_ships_latest = mode_filtered_ship_df[mode_filtered_ship_df['_SNAPSHOT_DATE'] == l_date]
