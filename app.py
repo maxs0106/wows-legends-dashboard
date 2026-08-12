@@ -529,7 +529,7 @@ def main():
         mode_bt_df = bt_df[bt_df['TYPE'] == target_type_code] if not bt_df.empty and target_type_code else pd.DataFrame()
         mode_filtered_ship_df = ship_df[ship_df['TYPE'] == target_type_code] if not ship_df.empty and target_type_code else pd.DataFrame()
 
-    st.markdown("<hr style='border:1px solid #1e293b; margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:1px solid #ECA134; margin: 25px 0;'>", unsafe_allow_html=True)
 
     # ==========================================
     # タブ生成
